@@ -29,10 +29,11 @@ TARIFFS_URL   = f"{NDW_BASE}/charging_point_tariffs_ocpi.json.gz"
 
 OUTPUT_FILE = "wijchen-data.json"
 
-# Bounding box: Wijchen + ~5km buffer
-# (Nijmegen south, Beuningen, Druten corridor)
+# Bounding box: full municipality of Wijchen + small buffer
+# Covers Wijchen, Alverna, Woezik, Niftrik, Leur, Balgoij,
+# Bergharen, Hernen, Batenburg, Appeltern
 LAT_MIN, LAT_MAX = 51.770, 51.850
-LNG_MIN, LNG_MAX = 5.670, 5.810
+LNG_MIN, LNG_MAX = 5.570, 5.810
 
 HEADERS = {
     "User-Agent": "laadpalenwijchen.nl/1.0 (github.com/jdevalk/laadpalenwijchen.nl)",
