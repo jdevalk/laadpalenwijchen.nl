@@ -206,6 +206,44 @@ footer {
 ::-webkit-scrollbar { width:4px; }
 ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
 .empty { padding:24px; text-align:center; color:var(--muted); font-size:13px; }
+
+/* MOBILE BOTTOM SHEET */
+.sheet-handle { display:none; }
+
+@media (max-width: 767px) {
+  header { padding:0 12px; height:44px; }
+  .header-stats, .data-age { display:none; }
+  .wordmark-text h1 { font-size:11px; }
+  footer { display:none; }
+
+  .main { flex-direction:column; position:relative; }
+  #map { flex:1; }
+
+  .sidebar {
+    position:absolute; bottom:0; left:0; right:0; width:100%;
+    height:55vh; max-height:70vh;
+    border-right:none; border-top:1px solid var(--border);
+    border-radius:14px 14px 0 0;
+    box-shadow:0 -4px 20px rgba(0,0,0,.1);
+    transform:translateY(calc(100% - 90px));
+    transition:transform .3s ease;
+    z-index:500;
+  }
+  .sidebar.sheet-open { transform:translateY(0); }
+
+  .sheet-handle {
+    display:flex; justify-content:center; padding:8px 0 4px;
+    cursor:grab; flex-shrink:0;
+  }
+  .sheet-handle-bar {
+    width:36px; height:4px; background:var(--border2);
+    border-radius:2px;
+  }
+
+  .sidebar-top { padding:8px 12px; }
+  .sidebar-lbl { margin-bottom:6px; }
+  .list { padding:8px; }
+}
 </style>
 </head>
 <body>
@@ -247,7 +285,10 @@ footer {
 </header>
 
 <div class="main">
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar">
+    <div class="sheet-handle" id="sheet-handle">
+      <div class="sheet-handle-bar"></div>
+    </div>
     <div class="sidebar-top">
       <div class="sidebar-lbl">5 passen vergeleken</div>
       <div class="pass-chips" id="pass-chips"></div>
@@ -273,6 +314,27 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
 }).addTo(map);
 
 let markers = [], points = [], passes = [], activeId = null, locMarker = null;
+
+// ── BOTTOM SHEET (mobile) ────────────────────────────────────────────────────
+(function() {
+  const sidebar = document.getElementById('sidebar');
+  const handle = document.getElementById('sheet-handle');
+  handle.addEventListener('click', () => sidebar.classList.toggle('sheet-open'));
+
+  let startY = 0, wasOpen = false;
+  handle.addEventListener('touchstart', (e) => {
+    startY = e.touches[0].clientY;
+    wasOpen = sidebar.classList.contains('sheet-open');
+    sidebar.style.transition = 'none';
+  });
+  handle.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+  handle.addEventListener('touchend', (e) => {
+    sidebar.style.transition = '';
+    const dy = e.changedTouches[0].clientY - startY;
+    if (wasOpen && dy > 40) sidebar.classList.remove('sheet-open');
+    else if (!wasOpen && dy < -40) sidebar.classList.add('sheet-open');
+  });
+})();
 
 function locateMe() {
   const btn = document.getElementById('locate-btn');
@@ -344,12 +406,8 @@ function makePopup(pt) {
   }).join('');
 
   const sourceHtml = pt.pricing_source === 'ndw'
-    ? `<div style="margin-top:8px;font-size:10px;color:#1e40af">
-        ✓ Tarief: NDW/CPO (€${(pt.cpo_rate||0).toFixed(4)}/kWh excl. MSP)
-       </div>`
-    : `<div style="margin-top:8px;font-size:10px;color:#92400e">
-        ~ Tarief: schatting (CPO niet in NDW)
-       </div>`;
+    ? `<div style="margin-top:8px;font-size:10px;color:#1e40af">✓ actueel tarief</div>`
+    : `<div style="margin-top:8px;font-size:10px;color:#92400e">~ geschat tarief</div>`;
 
   return `<div class="pop">
     <div class="pop-head">
@@ -399,10 +457,8 @@ function renderList(pts) {
     }).join('');
 
     const srcClass = pt.pricing_source === 'ndw' ? 'source-ndw' : 'source-fallback';
-    const srcIcon  = pt.pricing_source === 'ndw' ? '✓ NDW-tarief' : '~ schatting';
-    const cpoRateHtml = pt.cpo_rate
-      ? `<span class="source-pill ${srcClass}">${srcIcon} · CPO €${pt.cpo_rate.toFixed(4)}/kWh</span>`
-      : `<span class="source-pill ${srcClass}">${srcIcon}</span>`;
+    const srcIcon  = pt.pricing_source === 'ndw' ? '✓ actueel tarief' : '~ geschat tarief';
+    const cpoRateHtml = `<span class="source-pill ${srcClass}">${srcIcon}</span>`;
 
     return `<div class="card" style="--c:${c}" data-id="${pt.id}" onclick="selectCard('${pt.id}')">
       <div class="card-stripe"></div>
@@ -442,6 +498,11 @@ function selectCard(id) {
       const m = markers.find(m => m._pid === id);
       if (m) m.openPopup();
     }
+    // On mobile, open the sheet and scroll to card
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.add('sheet-open');
+    const card = document.querySelector(`.card[data-id="${id}"]`);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 }
 
@@ -580,7 +641,7 @@ async function init() {
     const ndwPct = data.stats?.total > 0
       ? Math.round(data.stats.ndw_priced / data.stats.total * 100) : 0;
     document.getElementById('footer-stats').textContent =
-      `${points.length} locaties · ${ndwPct}% met echt NDW-tarief`;
+      `${points.length} locaties · ${ndwPct}% actueel tarief`;
 
     // Map markers (using NDW static availability initially)
     markers.forEach(m => map.removeLayer(m));

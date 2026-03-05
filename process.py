@@ -80,6 +80,9 @@ CPO_FALLBACK = {
 }
 
 SHELL_FIXED_OTHER_AC = 0.53  # Shell Recharge fixed rate for non-Shell poles (2025)
+
+# Operators where national median is misleading (regional concessie rates)
+SKIP_OPERATOR_MEDIAN = {"vattenfall incharge"}
 CHARGEMAP_MARKUP     = 0.12  # ~12% markup on CPO rate
 
 
@@ -181,7 +184,7 @@ def connector_type_label(conn: dict) -> str:
     return label_map.get(standard, standard)
 
 
-def process_location(loc: dict, tariff_map: dict) -> Optional[dict]:
+def process_location(loc: dict, tariff_map: dict, operator_median: Optional[dict] = None) -> Optional[dict]:
     coords = loc.get("coordinates", {})
     lat = float(coords.get("latitude", 0))
     lng = float(coords.get("longitude", 0))
@@ -211,7 +214,26 @@ def process_location(loc: dict, tariff_map: dict) -> Optional[dict]:
                     used_tariff_id = tid
                     break
 
+            # If no direct tariff, try operator median from nationwide data
+            # Skip for operators with known regional pricing (e.g. Vattenfall
+            # concessie rates differ per province, so national median is wrong)
+            pricing_source_override = None
+            if cpo_rate is None and operator_median:
+                op_lower = operator.lower()
+                if op_lower not in SKIP_OPERATOR_MEDIAN:
+                    median = operator_median.get(op_lower)
+                    if median is None:
+                        for op_key, op_rate in operator_median.items():
+                            if op_key in op_lower or op_lower in op_key:
+                                median = op_rate
+                                break
+                    if median is not None:
+                        cpo_rate = median
+                        pricing_source_override = "operator_median"
+
             pricing = build_pricing(cpo_rate, operator)
+            if pricing_source_override:
+                pricing["_source"] = pricing_source_override
             best    = best_pass(pricing)
 
             connectors.append({
@@ -298,17 +320,42 @@ def main():
     tariff_map = {t["id"]: t for t in tariffs if "id" in t}
     print(f"  Tariff IDs indexed: {len(tariff_map):,}")
 
-    # ── Filter + process ─────────────────────────────────────────────────────
-    print(f"\n[3/3] Filtering to Wijchen bbox ({LAT_MIN}–{LAT_MAX}, {LNG_MIN}–{LNG_MAX})...")
+    # ── Pass 1: collect real CPO rates per operator (nationwide) ────────────
+    print("\n[3/4] Collecting per-operator CPO rates from NDW tariffs...")
+    operator_rates = {}  # operator_name_lower -> list of rates
+    for loc in locations:
+        operator = ((loc.get("operator") or {}).get("name") or "").lower()
+        if not operator:
+            continue
+        for evse in loc.get("evses", []):
+            for conn in evse.get("connectors", []):
+                for tid in (conn.get("tariff_ids") or []):
+                    rate = get_cpo_rate(tid, tariff_map)
+                    if rate is not None:
+                        operator_rates.setdefault(operator, []).append(rate)
+                        break
+
+    # Compute median rate per operator
+    operator_median = {}
+    for op, rates in operator_rates.items():
+        sorted_rates = sorted(rates)
+        mid = len(sorted_rates) // 2
+        operator_median[op] = sorted_rates[mid]
+    print(f"  Operators with known rates: {len(operator_median)}")
+    for op, rate in sorted(operator_median.items()):
+        print(f"    {op}: €{rate:.4f}/kWh ({len(operator_rates[op])} samples)")
+
+    # ── Pass 2: filter + process with operator median as extra fallback ────
+    print(f"\n[4/4] Filtering to Wijchen bbox ({LAT_MIN}–{LAT_MAX}, {LNG_MIN}–{LNG_MAX})...")
     results = []
     ndw_priced = 0
     fallback_priced = 0
 
     for loc in locations:
-        processed = process_location(loc, tariff_map)
+        processed = process_location(loc, tariff_map, operator_median)
         if processed:
             results.append(processed)
-            if processed["pricing_source"] == "ndw":
+            if processed["pricing_source"] in ("ndw", "operator_median"):
                 ndw_priced += 1
             else:
                 fallback_priced += 1
