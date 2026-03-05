@@ -1,4 +1,4 @@
-# LaadPas Checker — Wijchen
+# Laadpalen Wijchen
 
 Vergelijkt 5 laadpassen op alle publieke laadpunten in Wijchen en omgeving.
 
