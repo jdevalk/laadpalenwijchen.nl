@@ -60,6 +60,13 @@ header {
   display:flex; align-items:center; gap:6px;
 }
 .data-age .dot { width:6px; height:6px; background:var(--green); border-radius:50%; }
+.locate-btn {
+  font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text2);
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:100px; padding:4px 11px; cursor:pointer;
+  display:flex; align-items:center; gap:5px; white-space:nowrap;
+}
+.locate-btn:hover { border-color:var(--border2); background:var(--surface2); }
 
 /* LAYOUT */
 .main { display:flex; flex:1; overflow:hidden; }
@@ -230,6 +237,7 @@ footer {
       <div class="hstat-lbl">Meest Voordelig</div>
     </div>
   </div>
+  <button class="locate-btn" id="locate-btn" onclick="locateMe()">📍 Mijn locatie</button>
   <div class="data-age">
     <div class="dot"></div>
     NDW · <span id="data-age-text">…</span>
@@ -264,7 +272,29 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   subdomains: 'abcd', maxZoom: 19,
 }).addTo(map);
 
-let markers = [], points = [], passes = [], activeId = null;
+let markers = [], points = [], passes = [], activeId = null, locMarker = null;
+
+function locateMe() {
+  const btn = document.getElementById('locate-btn');
+  btn.textContent = '📍 Zoeken…';
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      map.setView([lat, lng], 16, { animate: true });
+      if (locMarker) map.removeLayer(locMarker);
+      locMarker = L.circleMarker([lat, lng], {
+        radius: 8, fillColor: '#3b82f6', fillOpacity: 0.9,
+        color: '#fff', weight: 2,
+      }).addTo(map).bindPopup('Jouw locatie');
+      btn.textContent = '📍 Mijn locatie';
+    },
+    (err) => {
+      btn.textContent = '📍 Mijn locatie';
+      alert('Locatie niet beschikbaar: ' + err.message);
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
 
 // ── MARKER ──────────────────────────────────────────────────────────────────
 function makeIcon(pt) {
@@ -432,7 +462,7 @@ function formatAge(isoString) {
 // NDW data (locations + pricing) is the primary source; OCM is status-only.
 // Matching strategy: nearest NDW point within MAX_MATCH_M metres.
 
-const MAX_MATCH_M = 30; // metres — same charger threshold
+const MAX_MATCH_M = 15; // metres — same charger threshold
 
 function haversineM(lat1, lng1, lat2, lng2) {
   const R = 6371000;
