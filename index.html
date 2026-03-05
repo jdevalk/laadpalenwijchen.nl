@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LaadPas Checker — Wijchen</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root {
+  --bg: #f0f2f5;
+  --surface: #ffffff;
+  --surface2: #f7f8fa;
+  --border: #e4e7ed;
+  --border2: #d0d5df;
+  --text: #111827;
+  --text2: #374151;
+  --muted: #9ca3af;
+  --green: #16a34a;
+  --green-bg: #dcfce7;
+  --red: #dc2626;
+  --red-bg: #fee2e2;
+  --amber: #d97706;
+  --amber-bg: #fef3c7;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--bg); color: var(--text);
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* HEADER */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; height: 52px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  flex-shrink: 0; z-index: 1000;
+}
+.wordmark { display:flex; align-items:center; gap:11px; }
+.wordmark-icon {
+  width:32px; height:32px; background:var(--text); border-radius:8px;
+  display:flex; align-items:center; justify-content:center; font-size:15px;
+}
+.wordmark-text h1 {
+  font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700;
+  letter-spacing:-.2px; color:var(--text);
+}
+.wordmark-text span { font-size:10px; color:var(--muted); display:block; margin-top:1px; }
+.header-stats { display:flex; align-items:center; gap:28px; }
+.hstat { text-align:center; }
+.hstat-val { font-family:'IBM Plex Mono',monospace; font-size:18px; font-weight:700; line-height:1; }
+.hstat-lbl { font-size:9px; text-transform:uppercase; letter-spacing:.7px; color:var(--muted); margin-top:2px; }
+.data-age {
+  font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted);
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:100px; padding:4px 11px;
+  display:flex; align-items:center; gap:6px;
+}
+.data-age .dot { width:6px; height:6px; background:var(--green); border-radius:50%; }
+
+/* LAYOUT */
+.main { display:flex; flex:1; overflow:hidden; }
+
+/* SIDEBAR */
+.sidebar {
+  width:348px; flex-shrink:0;
+  background:var(--surface); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.sidebar-top {
+  padding:12px 14px; border-bottom:1px solid var(--border);
+  background:var(--surface2); flex-shrink:0;
+}
+.sidebar-lbl {
+  font-family:'IBM Plex Mono',monospace; font-size:9px;
+  text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:9px;
+}
+.pass-chips { display:flex; flex-wrap:wrap; gap:5px; }
+.chip {
+  display:flex; align-items:center; gap:5px; font-size:11px; font-weight:500;
+  padding:3px 9px 3px 7px; border-radius:100px;
+  border:1.5px solid; background:white; white-space:nowrap;
+}
+.chip-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
+.chip-fee { font-family:'IBM Plex Mono',monospace; font-size:9px; opacity:.65; }
+.list { flex:1; overflow-y:auto; padding:10px; scrollbar-width:thin; scrollbar-color:var(--border2) transparent; }
+
+/* CARDS */
+.card {
+  background:var(--surface); border:1.5px solid var(--border);
+  border-radius:12px; margin-bottom:8px; cursor:pointer;
+  position:relative; overflow:hidden; transition:border-color .12s, box-shadow .12s;
+}
+.card-stripe {
+  position:absolute; left:0; top:0; bottom:0; width:3px;
+  background:var(--c,#ccc); border-radius:2px 0 0 2px;
+}
+.card-inner { padding:11px 12px 11px 15px; }
+.card:hover { border-color:var(--c,#aaa); box-shadow:0 3px 14px rgba(0,0,0,.07); }
+.card.active { border-color:var(--c,#aaa); background:color-mix(in srgb,var(--c,#000) 4%,white); }
+.card-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2px; }
+.card-name { font-size:13px; font-weight:600; line-height:1.3; max-width:200px; }
+.badge { font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:600; padding:2px 7px; border-radius:100px; flex-shrink:0; }
+.badge-ok  { background:var(--green-bg); color:#14532d; }
+.badge-off { background:var(--red-bg);   color:#7f1d1d; }
+.card-sub { font-size:11px; color:var(--muted); margin-bottom:9px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.conn-tags { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:10px; }
+.conn-tag {
+  font-family:'IBM Plex Mono',monospace; font-size:9px; padding:2px 6px;
+  background:var(--bg); border:1px solid var(--border2); border-radius:4px; color:var(--text2);
+}
+.conn-tag.ndw { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+.winner-row {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:7px 10px; border-radius:8px;
+  background:color-mix(in srgb,var(--c,#000) 8%,white);
+  border:1px solid color-mix(in srgb,var(--c,#000) 20%,transparent);
+}
+.winner-name { font-size:12px; font-weight:600; color:var(--c,#000); }
+.winner-price { font-family:'IBM Plex Mono',monospace; font-size:14px; font-weight:700; color:var(--c,#000); }
+
+/* BREAKDOWN */
+.breakdown { display:none; margin-top:10px; }
+.card.active .breakdown { display:block; }
+.bk-lbl {
+  font-family:'IBM Plex Mono',monospace; font-size:9px;
+  text-transform:uppercase; letter-spacing:.8px; color:var(--muted); margin-bottom:4px;
+}
+.bk-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:5px 0; border-bottom:1px solid var(--border); font-size:12px;
+}
+.bk-row:last-child { border:none; }
+.bk-pass { display:flex; align-items:center; gap:7px; color:var(--text2); }
+.bk-dot { width:7px; height:7px; border-radius:50%; }
+.bk-right { display:flex; align-items:center; gap:8px; }
+.bk-price { font-family:'IBM Plex Mono',monospace; font-size:11px; }
+.bk-note { font-size:10px; color:var(--muted); font-style:italic; }
+
+/* SOURCE PILL */
+.source-pill {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:9px; padding:2px 6px; border-radius:4px; margin-top:7px;
+  font-family:'IBM Plex Mono',monospace;
+}
+.source-ndw      { background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; }
+.source-fallback { background:var(--amber-bg); color:#92400e; border:1px solid #fcd34d; }
+
+/* MAP */
+#map { flex:1; z-index:1; }
+
+/* POPUP */
+.leaflet-popup-content-wrapper {
+  background:#fff; border:1.5px solid var(--border2); border-radius:14px;
+  box-shadow:0 8px 32px rgba(0,0,0,.12);
+  font-family:'IBM Plex Sans',sans-serif; color:var(--text);
+}
+.leaflet-popup-tip { background:#fff; }
+.leaflet-popup-content { margin:0; }
+.pop { padding:14px 16px; min-width:240px; }
+.pop-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:3px; }
+.pop-name { font-size:14px; font-weight:600; }
+.pop-op { font-size:11px; color:var(--muted); margin-bottom:10px; }
+.pop-rows { display:flex; flex-direction:column; }
+.pop-row {
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:12px; padding:4px 0; border-bottom:1px solid var(--border);
+}
+.pop-row:last-child { border:none; }
+.pop-row-left { display:flex; align-items:center; gap:6px; color:var(--text2); }
+.pop-row-dot { width:6px; height:6px; border-radius:50%; }
+.pop-row-price { font-family:'IBM Plex Mono',monospace; font-size:11px; }
+
+/* FOOTER */
+footer {
+  padding:5px 16px; background:var(--surface); border-top:1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:center;
+  font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted); flex-shrink:0;
+}
+
+/* LOADER */
+.overlay {
+  position:absolute; inset:0; background:rgba(240,242,245,.92);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  z-index:9999; backdrop-filter:blur(3px); transition:opacity .3s;
+}
+.overlay.gone { opacity:0; pointer-events:none; }
+.spinner {
+  width:40px; height:40px; border:3px solid var(--border2);
+  border-top-color:var(--text); border-radius:50%;
+  animation:spin .7s linear infinite; margin-bottom:12px;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+.overlay-txt { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted); }
+
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+.empty { padding:24px; text-align:center; color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="loader">
+  <div class="spinner"></div>
+  <div class="overlay-txt">Laadpunten ophalen…</div>
+</div>
+
+<header>
+  <div class="wordmark">
+    <div class="wordmark-icon">⚡</div>
+    <div class="wordmark-text">
+      <h1>LaadPas Checker</h1>
+      <span>Wijchen · Gelderland</span>
+    </div>
+  </div>
+  <div class="header-stats">
+    <div class="hstat">
+      <div class="hstat-val" id="stat-total">—</div>
+      <div class="hstat-lbl">Laadpunten</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val" id="stat-avail" style="color:var(--green)">—</div>
+      <div class="hstat-lbl">Beschikbaar</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val" id="stat-best" style="font-size:13px">—</div>
+      <div class="hstat-lbl">Meest Voordelig</div>
+    </div>
+  </div>
+  <div class="data-age">
+    <div class="dot"></div>
+    NDW · <span id="data-age-text">…</span>
+    &nbsp;·&nbsp;
+    <span id="status-age-text" title="Beschikbaarheid live via Open Charge Map">status …</span>
+  </div>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-lbl">5 passen vergeleken</div>
+      <div class="pass-chips" id="pass-chips"></div>
+    </div>
+    <div class="list" id="list">
+      <div class="empty">Laden…</div>
+    </div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<footer>
+  <span>Bron: NDW open data (opendata.ndw.nu) · <span id="footer-stats"></span></span>
+  <span>Tarieven indicatief · check altijd de app</span>
+</footer>
+
+<script>
+const WIJCHEN = [51.8118, 5.7253];
+const map = L.map('map', { center: WIJCHEN, zoom: 14 });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO',
+  subdomains: 'abcd', maxZoom: 19,
+}).addTo(map);
+
+let markers = [], points = [], passes = [], activeId = null;
+
+// ── MARKER ──────────────────────────────────────────────────────────────────
+function makeIcon(pt) {
+  const c = passColor(pt.best.pass_id);
+  const fast = pt.max_power >= 50;
+  return L.divIcon({
+    className: '',
+    html: `<div style="display:flex;flex-direction:column;align-items:center">
+      <div style="width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+        background:${c};border:2.5px solid white;box-shadow:0 3px 10px rgba(0,0,0,.22);
+        display:flex;align-items:center;justify-content:center">
+        <span style="transform:rotate(45deg);font-size:13px">${fast ? '⚡' : '🔌'}</span>
+      </div>
+      <div style="width:2px;height:4px;background:${c};opacity:.4;margin-top:-1px"></div>
+    </div>`,
+    iconSize:[34,46], iconAnchor:[17,46], popupAnchor:[0,-48],
+  });
+}
+
+function passColor(id) {
+  return (passes.find(p => p.id === id) || {}).color || '#9ca3af';
+}
+
+function passName(id) {
+  return (passes.find(p => p.id === id) || {}).name || id || 'Onbekend';
+}
+
+// ── POPUP ────────────────────────────────────────────────────────────────────
+function makePopup(pt) {
+  const sBg  = pt.available ? 'var(--green-bg)' : 'var(--red-bg)';
+  const sCo  = pt.available ? '#14532d' : '#7f1d1d';
+  const sLbl = pt.available ? 'Beschikbaar' : 'Bezet';
+  const wc   = passColor(pt.best.pass_id);
+
+  const rows = passes.map(p => {
+    const price = (pt.pricing || {})[p.id];
+    const best  = p.id === pt.best.pass_id;
+    if (price == null) return '';
+    return `<div class="pop-row">
+      <div class="pop-row-left">
+        <div class="pop-row-dot" style="background:${p.color}"></div>${p.name}
+      </div>
+      <span class="pop-row-price" style="${best ? `color:${p.color};font-weight:700` : 'color:var(--muted)'}">
+        €${price.toFixed(2)}/kWh
+      </span>
+    </div>`;
+  }).join('');
+
+  const sourceHtml = pt.pricing_source === 'ndw'
+    ? `<div style="margin-top:8px;font-size:10px;color:#1e40af">
+        ✓ Tarief: NDW/CPO (€${(pt.cpo_rate||0).toFixed(4)}/kWh excl. MSP)
+       </div>`
+    : `<div style="margin-top:8px;font-size:10px;color:#92400e">
+        ~ Tarief: schatting (CPO niet in NDW)
+       </div>`;
+
+  return `<div class="pop">
+    <div class="pop-head">
+      <div class="pop-name">${pt.name}</div>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;
+        padding:2px 7px;border-radius:100px;background:${sBg};color:${sCo}">${sLbl}</span>
+    </div>
+    <div class="pop-op">${pt.operator} · ${(pt.connectors||[]).slice(0,2).join(' · ')}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;
+      padding:7px 10px;border-radius:8px;margin-bottom:8px;
+      background:${wc}14;border:1px solid ${wc}30">
+      <span style="font-size:12px;font-weight:600;color:${wc}">🏆 ${passName(pt.best.pass_id)}</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;color:${wc}">
+        €${(pt.best.price||0).toFixed(2)}/kWh
+      </span>
+    </div>
+    <div class="pop-rows">${rows}</div>
+    ${sourceHtml}
+  </div>`;
+}
+
+// ── SIDEBAR ──────────────────────────────────────────────────────────────────
+function renderList(pts) {
+  // Tally wins
+  const wins = {};
+  pts.forEach(p => { if (p.best?.pass_id) wins[p.best.pass_id] = (wins[p.best.pass_id]||0)+1; });
+  const topId = Object.entries(wins).sort((a,b)=>b[1]-a[1])[0]?.[0];
+  const el = document.getElementById('stat-best');
+  el.textContent = passName(topId).split(' ')[0] || '—';
+  el.style.color = passColor(topId);
+
+  document.getElementById('list').innerHTML = pts.map(pt => {
+    const c = passColor(pt.best?.pass_id);
+    const pricing = pt.pricing || {};
+
+    const bk = passes.map(p => {
+      const price = pricing[p.id];
+      if (price == null) return '';
+      const best = p.id === pt.best?.pass_id;
+      return `<div class="bk-row">
+        <div class="bk-pass"><div class="bk-dot" style="background:${p.color}"></div>${p.name}</div>
+        <div class="bk-right">
+          ${p.monthly > 0 ? `<span class="bk-note">+€${p.monthly}/mo</span>` : ''}
+          <span class="bk-price" style="${best ? `color:${c};font-weight:700` : 'color:var(--muted)'}">€${price.toFixed(2)}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    const srcClass = pt.pricing_source === 'ndw' ? 'source-ndw' : 'source-fallback';
+    const srcIcon  = pt.pricing_source === 'ndw' ? '✓ NDW-tarief' : '~ schatting';
+    const cpoRateHtml = pt.cpo_rate
+      ? `<span class="source-pill ${srcClass}">${srcIcon} · CPO €${pt.cpo_rate.toFixed(4)}/kWh</span>`
+      : `<span class="source-pill ${srcClass}">${srcIcon}</span>`;
+
+    return `<div class="card" style="--c:${c}" data-id="${pt.id}" onclick="selectCard('${pt.id}')">
+      <div class="card-stripe"></div>
+      <div class="card-inner">
+        <div class="card-head">
+          <div class="card-name">${pt.name}</div>
+          <span class="badge ${pt.available ? 'badge-ok' : 'badge-off'}">${pt.available ? 'OK' : 'Bezet'}</span>
+        </div>
+        <div class="card-sub">${pt.operator} · ${pt.address}</div>
+        <div class="conn-tags">
+          ${pt.max_power ? `<span class="conn-tag">${pt.max_power}kW</span>` : ''}
+          ${(pt.connectors||[]).slice(0,2).map(t => `<span class="conn-tag">${t}</span>`).join('')}
+          ${pt.num_evses > 1 ? `<span class="conn-tag">${pt.num_evses}×</span>` : ''}
+        </div>
+        <div class="winner-row">
+          <div class="winner-name">🏆 ${passName(pt.best?.pass_id)}</div>
+          <div class="winner-price">€${(pt.best?.price||0).toFixed(2)}/kWh</div>
+        </div>
+        <div class="breakdown">
+          <div class="bk-lbl" style="margin-top:10px">Alle passen (€/kWh)</div>
+          ${bk}
+          ${cpoRateHtml}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectCard(id) {
+  activeId = (activeId === id) ? null : id;
+  document.querySelectorAll('.card').forEach(el =>
+    el.classList.toggle('active', el.dataset.id === activeId));
+  if (activeId) {
+    const pt = points.find(p => p.id === id);
+    if (pt) {
+      map.setView([pt.lat, pt.lng], 16, { animate: true });
+      const m = markers.find(m => m._pid === id);
+      if (m) m.openPopup();
+    }
+  }
+}
+
+// ── FORMAT AGE ───────────────────────────────────────────────────────────────
+function formatAge(isoString) {
+  if (!isoString || isoString.startsWith('1970')) return 'laden…';
+  const d = new Date(isoString);
+  const now = new Date();
+  const diffH = Math.round((now - d) / 3600000);
+  if (diffH < 1) return 'zojuist';
+  if (diffH < 24) return `${diffH}u geleden`;
+  const diffD = Math.round(diffH / 24);
+  return `${diffD}d geleden`;
+}
+
+// ── LIVE STATUS via Open Charge Map ──────────────────────────────────────────
+// OCM is fetched client-side every 5 minutes for real-time availability.
+// NDW data (locations + pricing) is the primary source; OCM is status-only.
+// Matching strategy: nearest NDW point within MAX_MATCH_M metres.
+
+const OCM_KEY   = 'fd5f3d52-fcce-48da-b85a-1dc54b30c56a';
+const WIJCHEN   = [51.8118, 5.7253];
+const MAX_MATCH_M = 30; // metres — same charger threshold
+
+function haversineM(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2
+    + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+async function fetchOCMStatus() {
+  const [lat, lng] = WIJCHEN;
+  const url = `https://api.openchargemap.io/v3/poi/?output=json&countrycode=NL`
+    + `&latitude=${lat}&longitude=${lng}&distance=5&distanceunit=KM`
+    + `&maxresults=100&compact=true&verbose=false&key=${OCM_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`OCM ${res.status}`);
+  return res.json();
+}
+
+function applyStatusOverlay(ocmResults) {
+  // Build a fast lookup: for each OCM result store its lat/lng + operational flag
+  const ocmPoints = ocmResults
+    .filter(r => r.AddressInfo?.Latitude && r.AddressInfo?.Longitude)
+    .map(r => ({
+      lat:       r.AddressInfo.Latitude,
+      lng:       r.AddressInfo.Longitude,
+      available: (r.StatusType?.IsOperational !== false) && (r.StatusType?.IsOperational != null),
+      statusId:  r.StatusType?.ID,
+    }));
+
+  let matched = 0;
+
+  points.forEach(pt => {
+    // Find closest OCM point within threshold
+    let bestDist = Infinity, bestOcm = null;
+    for (const o of ocmPoints) {
+      const d = haversineM(pt.lat, pt.lng, o.lat, o.lng);
+      if (d < bestDist) { bestDist = d; bestOcm = o; }
+    }
+    if (bestOcm && bestDist <= MAX_MATCH_M) {
+      pt.available        = bestOcm.available;
+      pt.status_source    = 'ocm';
+      pt.status_dist_m    = Math.round(bestDist);
+      matched++;
+    } else {
+      pt.status_source = 'ndw_static';
+      // Keep whatever available flag came from NDW snapshot
+    }
+  });
+
+  return matched;
+}
+
+function refreshAvailabilityUI() {
+  // Update sidebar badges + available count without full re-render
+  const availCount = points.filter(p => p.available).length;
+  document.getElementById('stat-avail').textContent = availCount;
+
+  // Update each card's badge in place
+  points.forEach(pt => {
+    const card = document.querySelector(`.card[data-id="${pt.id}"]`);
+    if (!card) return;
+    const badge = card.querySelector('.badge');
+    if (!badge) return;
+    badge.className = `badge ${pt.available ? 'badge-ok' : 'badge-off'}`;
+    badge.textContent = pt.available ? 'OK' : 'Bezet';
+  });
+
+  // Refresh map marker icons (colour stays same, but rebuild popup with new status)
+  markers.forEach(m => {
+    const pt = points.find(p => p.id === m._pid);
+    if (pt) m.setPopupContent(makePopup(pt));
+  });
+}
+
+async function refreshStatus() {
+  try {
+    const ocm = await fetchOCMStatus();
+    const matched = applyStatusOverlay(ocm);
+    refreshAvailabilityUI();
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    document.getElementById('status-age-text').textContent = `status ${hh}:${mm}`;
+    console.log(`OCM status: ${ocm.length} results, ${matched}/${points.length} matched`);
+  } catch (e) {
+    console.warn('OCM status fetch failed:', e.message);
+    document.getElementById('status-age-text').textContent = 'status ?';
+  }
+}
+
+// ── MAIN ─────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const res = await fetch('./wijchen-data.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    passes = data.passes || [];
+    points = data.locations || [];
+
+    // Render pass chips
+    document.getElementById('pass-chips').innerHTML = passes.map(p => `
+      <div class="chip" style="color:${p.color};border-color:${p.color}40">
+        <div class="chip-dot"></div>${p.name}
+        ${p.monthly > 0 ? `<span class="chip-fee">€${p.monthly}/mo</span>` : ''}
+      </div>`).join('');
+
+    // Stats (availability will be updated by OCM overlay below)
+    document.getElementById('stat-total').textContent = points.length;
+    document.getElementById('stat-avail').textContent = points.filter(p=>p.available).length;
+    document.getElementById('data-age-text').textContent = formatAge(data.generated_at);
+
+    const ndwPct = data.stats?.total > 0
+      ? Math.round(data.stats.ndw_priced / data.stats.total * 100) : 0;
+    document.getElementById('footer-stats').textContent =
+      `${points.length} locaties · ${ndwPct}% met echt NDW-tarief`;
+
+    // Map markers (using NDW static availability initially)
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+    points.forEach(pt => {
+      const m = L.marker([pt.lat, pt.lng], { icon: makeIcon(pt) });
+      m.bindPopup(makePopup(pt), { maxWidth: 280 });
+      m._pid = pt.id;
+      m.addTo(map);
+      markers.push(m);
+    });
+
+    renderList(points);
+  } catch (e) {
+    console.error('Failed to load wijchen-data.json:', e);
+    document.getElementById('list').innerHTML =
+      `<div class="empty">Kon data niet laden.<br>${e.message}</div>`;
+  }
+
+  document.getElementById('loader').classList.add('gone');
+
+  // Fetch live status immediately, then every 5 minutes
+  refreshStatus();
+  setInterval(refreshStatus, 5 * 60 * 1000);
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,352 @@
+#!/usr/bin/env python3
+"""
+NDW charging point preprocessor for Wijchen, NL.
+
+Downloads the two public NDW open data files:
+  - charging_point_locations_ocpi.json.gz  (OCPI 2.2.1 locations)
+  - charging_point_tariffs_ocpi.json.gz    (OCPI 2.2.1 tariffs)
+
+Filters to a bounding box around Wijchen, joins tariffs onto connectors,
+and writes wijchen-data.json to be served statically by Cloudflare Pages.
+
+No API key required. Files are updated daily by NDW.
+Run: python3 process.py
+"""
+
+import gzip
+import json
+import urllib.request
+import urllib.error
+import sys
+import os
+from datetime import datetime, timezone
+
+# ── CONFIG ────────────────────────────────────────────────────────────────────
+NDW_BASE = "https://opendata.ndw.nu"
+LOCATIONS_URL = f"{NDW_BASE}/charging_point_locations_ocpi.json.gz"
+TARIFFS_URL   = f"{NDW_BASE}/charging_point_tariffs_ocpi.json.gz"
+
+OUTPUT_FILE = "wijchen-data.json"
+
+# Bounding box: Wijchen + ~5km buffer
+# (Nijmegen south, Beuningen, Druten corridor)
+LAT_MIN, LAT_MAX = 51.770, 51.850
+LNG_MIN, LNG_MAX = 5.670, 5.810
+
+HEADERS = {
+    "User-Agent": "wijchen-laadpas-checker/1.0 (github.com/your-org/wijchen-laadpas)",
+    "Accept-Encoding": "identity",
+}
+
+# ── KNOWN MSP RATES (fallback / layered on top of CPO rate) ──────────────────
+# Used when a tariff_id is present but CPO rate not in NDW tariffs file,
+# OR for MSPs that use fixed rates regardless of CPO.
+# All €/kWh incl. BTW, AC loading, estimated for 15 kWh session.
+# Updated: March 2026
+#
+# Shell Recharge uses fixed rates per network type (not CPO passthrough):
+#   - Own Shell poles: variable CPO rate (2025 change)
+#   - Other AC poles:  €0.53 fixed
+# Chargemap adds ~12% markup on CPO rate.
+# Vattenfall own pass at own Gelderland/Overijssel poles: €0.31 concessie rate.
+# ChargePoint: CPO rate 1:1, no markup.
+# Laadkompas met abonnement: CPO rate, no start fee.
+
+PASSES = [
+    {"id": "vattenfall", "name": "Vattenfall",     "color": "#16a34a", "monthly": 0},
+    {"id": "laadkompas", "name": "Laadkompas",     "color": "#2563eb", "monthly": 4.78},
+    {"id": "chargepoint","name": "ChargePoint",    "color": "#d97706", "monthly": 0},
+    {"id": "shell",      "name": "Shell Recharge", "color": "#e11d48", "monthly": 0},
+    {"id": "chargemap",  "name": "Chargemap",      "color": "#7c3aed", "monthly": 0},
+]
+
+# Per-CPO pricing overrides (when CPO rate not available from NDW tariffs).
+# Keyed by lowercase operator name substring.
+CPO_FALLBACK = {
+    "vattenfall": {"vattenfall": 0.31, "laadkompas": 0.31, "chargepoint": 0.31, "shell": 0.53, "chargemap": 0.35},
+    "allego":     {"vattenfall": 0.62, "laadkompas": 0.60, "chargepoint": 0.60, "shell": 0.60, "chargemap": 0.67},
+    "shell":      {"vattenfall": 0.58, "laadkompas": 0.56, "chargepoint": 0.53, "shell": 0.48, "chargemap": 0.59},
+    "e-flux":     {"vattenfall": 0.42, "laadkompas": 0.40, "chargepoint": 0.40, "shell": 0.53, "chargemap": 0.45},
+    "road":       {"vattenfall": 0.42, "laadkompas": 0.40, "chargepoint": 0.40, "shell": 0.53, "chargemap": 0.45},
+    "ev-box":     {"vattenfall": 0.40, "laadkompas": 0.38, "chargepoint": 0.38, "shell": 0.53, "chargemap": 0.43},
+    "greenflux":  {"vattenfall": 0.44, "laadkompas": 0.42, "chargepoint": 0.42, "shell": 0.57, "chargemap": 0.47},
+    "ecotap":     {"vattenfall": 0.34, "laadkompas": 0.32, "chargepoint": 0.32, "shell": 0.53, "chargemap": 0.36},
+    "eneco":      {"vattenfall": 0.42, "laadkompas": 0.40, "chargepoint": 0.40, "shell": 0.53, "chargemap": 0.45},
+    "nuon":       {"vattenfall": 0.31, "laadkompas": 0.31, "chargepoint": 0.31, "shell": 0.53, "chargemap": 0.35},
+    "last mile":  {"vattenfall": 0.37, "laadkompas": 0.35, "chargepoint": 0.35, "shell": 0.53, "chargemap": 0.39},
+    "plugwise":   {"vattenfall": 0.36, "laadkompas": 0.34, "chargepoint": 0.34, "shell": 0.53, "chargemap": 0.38},
+    "default":    {"vattenfall": 0.39, "laadkompas": 0.37, "chargepoint": 0.36, "shell": 0.53, "chargemap": 0.41},
+}
+
+SHELL_FIXED_OTHER_AC = 0.53  # Shell Recharge fixed rate for non-Shell poles (2025)
+CHARGEMAP_MARKUP     = 0.12  # ~12% markup on CPO rate
+
+
+def fetch_gz(url: str) -> bytes:
+    print(f"  Fetching {url} ...", end=" ", flush=True)
+    req = urllib.request.Request(url, headers=HEADERS)
+    with urllib.request.urlopen(req, timeout=60) as r:
+        compressed = r.read()
+    print(f"{len(compressed) / 1024:.0f} KB compressed")
+    return gzip.decompress(compressed)
+
+
+def get_cpo_rate(tariff_id: str, tariff_map: dict) -> float | None:
+    """
+    Extract energy price (€/kWh) from an OCPI 2.2.1 tariff object.
+    Returns None if not found or not an energy-priced tariff.
+    """
+    tariff = tariff_map.get(tariff_id)
+    if not tariff:
+        return None
+    for element in tariff.get("elements", []):
+        for pc in element.get("price_components", []):
+            if pc.get("type") == "ENERGY" and "price" in pc:
+                price = float(pc["price"])
+                # Apply VAT if not already included
+                # OCPI prices are typically excl. VAT; NDW may vary
+                # We check for a vat field; if absent, apply 21%
+                vat = pc.get("vat")
+                if vat is not None:
+                    price = round(price * (1 + float(vat) / 100), 4)
+                else:
+                    price = round(price * 1.21, 4)
+                return price
+    return None
+
+
+def get_fallback_pricing(operator_name: str) -> dict:
+    lo = (operator_name or "").lower()
+    for key, pricing in CPO_FALLBACK.items():
+        if key == "default":
+            continue
+        if key in lo:
+            return pricing
+    return CPO_FALLBACK["default"]
+
+
+def build_pricing(cpo_rate: float | None, operator_name: str) -> dict:
+    """
+    Build the 5-pass pricing dict for a connector.
+
+    If we have a real CPO rate from NDW tariffs:
+      - vattenfall: CPO rate (concessie; own poles, no start fee)
+      - laadkompas: CPO rate (with subscription, no start fee)
+      - chargepoint: CPO rate (1:1 passthrough, no markup)
+      - shell:       fixed SHELL_FIXED_OTHER_AC (unless own Shell pole)
+      - chargemap:   CPO rate * (1 + CHARGEMAP_MARKUP)
+
+    Otherwise fall back to CPO_FALLBACK table.
+    """
+    if cpo_rate is None:
+        return get_fallback_pricing(operator_name)
+
+    # Detect Shell-own poles to use their own rate
+    is_shell_pole = "shell" in (operator_name or "").lower()
+    shell_price = round(cpo_rate * 0.95, 4) if is_shell_pole else SHELL_FIXED_OTHER_AC
+
+    return {
+        "vattenfall":  round(cpo_rate, 4),
+        "laadkompas":  round(cpo_rate, 4),
+        "chargepoint": round(cpo_rate, 4),
+        "shell":       shell_price,
+        "chargemap":   round(cpo_rate * (1 + CHARGEMAP_MARKUP), 4),
+        "_source":     "ndw",
+        "_cpo_rate":   round(cpo_rate, 4),
+    }
+
+
+def best_pass(pricing: dict) -> dict:
+    best_id, best_price = None, float("inf")
+    for p in PASSES:
+        price = pricing.get(p["id"])
+        if price is not None and price < best_price:
+            best_price = price
+            best_id = p["id"]
+    return {"pass_id": best_id, "price": best_price}
+
+
+def connector_type_label(conn: dict) -> str:
+    standard = conn.get("standard", "")
+    label_map = {
+        "IEC_62196_T2":       "Type 2",
+        "IEC_62196_T2_COMBO": "CCS",
+        "CHADEMO":            "CHAdeMO",
+        "DOMESTIC_F":         "Schuko",
+        "IEC_62196_T1":       "Type 1",
+        "IEC_62196_T1_COMBO": "CCS (T1)",
+        "TESLA_S":            "Tesla",
+    }
+    return label_map.get(standard, standard)
+
+
+def process_location(loc: dict, tariff_map: dict) -> dict | None:
+    coords = loc.get("coordinates", {})
+    lat = float(coords.get("latitude", 0))
+    lng = float(coords.get("longitude", 0))
+
+    if not (LAT_MIN <= lat <= LAT_MAX and LNG_MIN <= lng <= LNG_MAX):
+        return None
+
+    operator = (loc.get("operator") or {}).get("name", "Onbekend")
+    name      = loc.get("name") or loc.get("address") or "Laadpunt"
+    address   = loc.get("address", "")
+    city      = loc.get("city", "")
+
+    # Flatten all connectors from all EVSEs
+    connectors = []
+    for evse in loc.get("evses", []):
+        evse_id    = evse.get("evse_id", "")
+        status     = evse.get("status", "UNKNOWN")  # AVAILABLE, CHARGING, etc.
+        for conn in evse.get("connectors", []):
+            tariff_ids = conn.get("tariff_ids", [])
+            # Find the first tariff that yields a rate
+            cpo_rate = None
+            used_tariff_id = None
+            for tid in tariff_ids:
+                rate = get_cpo_rate(tid, tariff_map)
+                if rate is not None:
+                    cpo_rate = rate
+                    used_tariff_id = tid
+                    break
+
+            pricing = build_pricing(cpo_rate, operator)
+            best    = best_pass(pricing)
+
+            connectors.append({
+                "evse_id":    evse_id,
+                "status":     status,
+                "type":       connector_type_label(conn),
+                "power_kw":   conn.get("max_electric_power", 0) / 1000 if conn.get("max_electric_power") else conn.get("max_electric_power", 0),
+                "tariff_id":  used_tariff_id,
+                "pricing":    {k: v for k, v in pricing.items() if not k.startswith("_")},
+                "pricing_source": pricing.get("_source", "fallback"),
+                "cpo_rate":   pricing.get("_cpo_rate"),
+                "best":       best,
+            })
+
+    if not connectors:
+        return None
+
+    # Location-level availability: available if any connector is AVAILABLE
+    statuses = [c["status"] for c in connectors]
+    available = "AVAILABLE" in statuses
+
+    # Pick the "best" pass for the location (cheapest across all connectors)
+    all_best = [(c["best"]["price"], c["best"]["pass_id"]) for c in connectors if c["best"]["pass_id"]]
+    loc_best_price, loc_best_pass = min(all_best) if all_best else (0.39, "vattenfall")
+
+    # Deduplicate connector types for display
+    conn_types = list(dict.fromkeys(c["type"] for c in connectors))
+    max_power  = max((c["power_kw"] for c in connectors), default=0)
+
+    return {
+        "id":         loc.get("id", ""),
+        "name":       name,
+        "address":    f"{address}, {city}".strip(", "),
+        "lat":        lat,
+        "lng":        lng,
+        "operator":   operator,
+        "connectors": conn_types,
+        "max_power":  max_power,
+        "num_evses":  len(loc.get("evses", [])),
+        "available":  available,
+        "statuses":   list(set(statuses)),
+        "best": {
+            "pass_id": loc_best_pass,
+            "price":   loc_best_price,
+        },
+        # Pricing from the first available connector (representative)
+        "pricing":    connectors[0]["pricing"] if connectors else {},
+        "pricing_source": connectors[0].get("pricing_source", "fallback") if connectors else "fallback",
+        "cpo_rate":   connectors[0].get("cpo_rate") if connectors else None,
+    }
+
+
+def main():
+    print("=== NDW Wijchen preprocessor ===")
+
+    # ── Download ────────────────────────────────────────────────────────────
+    print("\n[1/3] Downloading NDW data files...")
+    try:
+        locations_raw = fetch_gz(LOCATIONS_URL)
+        tariffs_raw   = fetch_gz(TARIFFS_URL)
+    except urllib.error.URLError as e:
+        print(f"\nERROR: Could not download NDW data: {e}")
+        sys.exit(1)
+
+    # ── Parse ────────────────────────────────────────────────────────────────
+    print("\n[2/3] Parsing OCPI data...")
+    locations_data = json.loads(locations_raw)
+    tariffs_data   = json.loads(tariffs_raw)
+
+    # OCPI 2.2.1 response wraps in {"data": [...], "status_code": 1000, ...}
+    locations = locations_data.get("data", locations_data) if isinstance(locations_data, dict) else locations_data
+    tariffs   = tariffs_data.get("data",   tariffs_data)   if isinstance(tariffs_data,   dict) else tariffs_data
+
+    if not isinstance(locations, list):
+        # Some OCPI responses nest further
+        locations = locations_data.get("locations", [])
+    if not isinstance(tariffs, list):
+        tariffs = tariffs_data.get("tariffs", [])
+
+    print(f"  Total NL locations: {len(locations):,}")
+    print(f"  Total NL tariffs:   {len(tariffs):,}")
+
+    # Build tariff lookup map: id → tariff object
+    tariff_map = {t["id"]: t for t in tariffs if "id" in t}
+    print(f"  Tariff IDs indexed: {len(tariff_map):,}")
+
+    # ── Filter + process ─────────────────────────────────────────────────────
+    print(f"\n[3/3] Filtering to Wijchen bbox ({LAT_MIN}–{LAT_MAX}, {LNG_MIN}–{LNG_MAX})...")
+    results = []
+    ndw_priced = 0
+    fallback_priced = 0
+
+    for loc in locations:
+        processed = process_location(loc, tariff_map)
+        if processed:
+            results.append(processed)
+            if processed["pricing_source"] == "ndw":
+                ndw_priced += 1
+            else:
+                fallback_priced += 1
+
+    print(f"  Locations in area:  {len(results)}")
+    print(f"  Real NDW tariffs:   {ndw_priced}  ({ndw_priced/max(len(results),1)*100:.0f}%)")
+    print(f"  Fallback pricing:   {fallback_priced}")
+
+    # Operator breakdown
+    ops = {}
+    for r in results:
+        op = r["operator"]
+        ops[op] = ops.get(op, 0) + 1
+    print("\n  Operators found:")
+    for op, count in sorted(ops.items(), key=lambda x: -x[1]):
+        print(f"    {op}: {count}")
+
+    # ── Write output ────────────────────────────────────────────────────────
+    output = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "source": "NDW open data (opendata.ndw.nu)",
+        "bbox": {"lat_min": LAT_MIN, "lat_max": LAT_MAX, "lng_min": LNG_MIN, "lng_max": LNG_MAX},
+        "passes": PASSES,
+        "stats": {
+            "total": len(results),
+            "available": sum(1 for r in results if r["available"]),
+            "ndw_priced": ndw_priced,
+            "fallback_priced": fallback_priced,
+        },
+        "locations": results,
+    }
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        json.dump(output, f, ensure_ascii=False, separators=(",", ":"))
+
+    size_kb = os.path.getsize(OUTPUT_FILE) / 1024
+    print(f"\n✓ Written {OUTPUT_FILE} ({size_kb:.1f} KB)")
+    print(f"  {len(results)} locations · {ndw_priced} with real CPO rates")
+
+
+if __name__ == "__main__":
+    main()
