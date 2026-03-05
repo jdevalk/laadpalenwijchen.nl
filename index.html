@@ -459,13 +459,15 @@ function renderOperatorChips() {
   const counts = {};
   points.forEach(p => { counts[p.operator] = (counts[p.operator]||0) + 1; });
   const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+  const ocmOnlyCount = points.filter(p => p._ocm_only).length;
   document.getElementById('operator-chips').innerHTML =
     `<div class="chip-op${!activeOperator ? ' active' : ''}" onclick="filterOperator(null)">Alle</div>` +
     sorted.map(([op, n]) =>
       `<div class="chip-op${activeOperator === op ? ' active' : ''}" onclick="filterOperator('${op.replace(/'/g,"\\'")}')">
         ${op} <span class="chip-count">${n}</span>
       </div>`
-    ).join('');
+    ).join('') +
+    (ocmOnlyCount ? `<div class="chip-op${activeOperator === '__ocm_only__' ? ' active' : ''}" onclick="filterOperator('__ocm_only__')" title="Laadpunten alleen bekend via Open Charge Map, niet in NDW">Niet in NDW <span class="chip-count">${ocmOnlyCount}</span></div>` : '');
 }
 
 function filterOperator(op) {
@@ -474,13 +476,15 @@ function filterOperator(op) {
 }
 
 function applyFilter() {
-  const filtered = activeOperator ? points.filter(p => p.operator === activeOperator) : points;
+  const filtered = activeOperator === '__ocm_only__' ? points.filter(p => p._ocm_only)
+    : activeOperator ? points.filter(p => p.operator === activeOperator) : points;
   renderOperatorChips();
   renderList(filtered);
   // Show/hide markers
   markers.forEach(m => {
     const pt = points.find(p => p.id === m._pid);
-    if (!activeOperator || (pt && pt.operator === activeOperator)) {
+    const show = !activeOperator || (activeOperator === '__ocm_only__' ? pt?._ocm_only : pt?.operator === activeOperator);
+    if (show) {
       if (!map.hasLayer(m)) m.addTo(map);
     } else {
       if (map.hasLayer(m)) map.removeLayer(m);
