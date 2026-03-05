@@ -59,27 +59,31 @@ HEADERS = {
 PASSES = [
     {"id": "vattenfall", "name": "Vattenfall",     "color": "#16a34a", "monthly": 0},
     {"id": "laadkompas", "name": "Laadkompas",     "color": "#2563eb", "monthly": 4.78},
+    {"id": "allego",     "name": "Allego",         "color": "#d97706", "monthly": 0},
     {"id": "shell",      "name": "Shell Recharge", "color": "#e11d48", "monthly": 0},
     {"id": "chargemap",  "name": "Chargemap",      "color": "#7c3aed", "monthly": 0},
 ]
+
+# Allego own-network AC rate (allego.eu/nl/prijzen, effective Jan 2025)
+ALLEGO_OWN_AC = 0.60
 
 # Per-CPO pricing overrides (when CPO rate not available from NDW tariffs).
 # Keyed by lowercase operator name substring.
 # Vattenfall/Nuon: €0,3624/kWh Gelderland & Overijssel (incharge.vattenfall.nl/onze-tarieven)
 CPO_FALLBACK = {
-    "vattenfall": {"vattenfall": 0.3624, "laadkompas": 0.3624, "shell": 0.55, "chargemap": 0.41},
-    "allego":     {"vattenfall": 0.62, "laadkompas": 0.60, "shell": 0.60, "chargemap": 0.67},
-    "shell":      {"vattenfall": 0.58, "laadkompas": 0.56, "shell": 0.48, "chargemap": 0.59},
-    "e-flux":     {"vattenfall": 0.42, "laadkompas": 0.40, "shell": 0.55, "chargemap": 0.45},
-    "road":       {"vattenfall": 0.42, "laadkompas": 0.40, "shell": 0.55, "chargemap": 0.45},
-    "ev-box":     {"vattenfall": 0.40, "laadkompas": 0.38, "shell": 0.55, "chargemap": 0.43},
-    "greenflux":  {"vattenfall": 0.44, "laadkompas": 0.42, "shell": 0.57, "chargemap": 0.47},
-    "ecotap":     {"vattenfall": 0.34, "laadkompas": 0.32, "shell": 0.55, "chargemap": 0.36},
-    "eneco":      {"vattenfall": 0.42, "laadkompas": 0.40, "shell": 0.55, "chargemap": 0.45},
-    "nuon":       {"vattenfall": 0.3624, "laadkompas": 0.3624, "shell": 0.55, "chargemap": 0.41},
-    "last mile":  {"vattenfall": 0.37, "laadkompas": 0.35, "shell": 0.55, "chargemap": 0.39},
-    "plugwise":   {"vattenfall": 0.36, "laadkompas": 0.34, "shell": 0.55, "chargemap": 0.38},
-    "default":    {"vattenfall": 0.39, "laadkompas": 0.37, "shell": 0.55, "chargemap": 0.41},
+    "vattenfall": {"vattenfall": 0.3624, "laadkompas": 0.3624, "allego": 0.60, "shell": 0.55, "chargemap": 0.41},
+    "allego":     {"vattenfall": 0.62, "laadkompas": 0.60, "allego": 0.60, "shell": 0.60, "chargemap": 0.67},
+    "shell":      {"vattenfall": 0.58, "laadkompas": 0.56, "allego": 0.60, "shell": 0.48, "chargemap": 0.59},
+    "e-flux":     {"vattenfall": 0.42, "laadkompas": 0.40, "allego": 0.60, "shell": 0.55, "chargemap": 0.45},
+    "road":       {"vattenfall": 0.42, "laadkompas": 0.40, "allego": 0.60, "shell": 0.55, "chargemap": 0.45},
+    "ev-box":     {"vattenfall": 0.40, "laadkompas": 0.38, "allego": 0.60, "shell": 0.55, "chargemap": 0.43},
+    "greenflux":  {"vattenfall": 0.44, "laadkompas": 0.42, "allego": 0.60, "shell": 0.57, "chargemap": 0.47},
+    "ecotap":     {"vattenfall": 0.34, "laadkompas": 0.32, "allego": 0.60, "shell": 0.55, "chargemap": 0.36},
+    "eneco":      {"vattenfall": 0.42, "laadkompas": 0.40, "allego": 0.60, "shell": 0.55, "chargemap": 0.45},
+    "nuon":       {"vattenfall": 0.3624, "laadkompas": 0.3624, "allego": 0.60, "shell": 0.55, "chargemap": 0.41},
+    "last mile":  {"vattenfall": 0.37, "laadkompas": 0.35, "allego": 0.60, "shell": 0.55, "chargemap": 0.39},
+    "plugwise":   {"vattenfall": 0.36, "laadkompas": 0.34, "allego": 0.60, "shell": 0.55, "chargemap": 0.38},
+    "default":    {"vattenfall": 0.39, "laadkompas": 0.37, "allego": 0.60, "shell": 0.55, "chargemap": 0.41},
 }
 
 SHELL_FIXED_OTHER_AC = 0.55  # Shell Recharge fixed rate for non-Shell poles (2025)
@@ -161,26 +165,34 @@ def get_fallback_pricing(operator_name: str) -> dict:
 
 def build_pricing(cpo_rate: Optional[float], operator_name: str) -> dict:
     """
-    Build the 4-pass pricing dict for a connector.
+    Build the 5-pass pricing dict for a connector.
 
     If we have a real CPO rate from NDW tariffs:
       - vattenfall: CPO rate (concessie; own poles, no start fee)
       - laadkompas: CPO rate (with subscription, no start fee)
-      - shell:       fixed SHELL_FIXED_OTHER_AC (unless own Shell pole)
-      - chargemap:   CPO rate * (1 + CHARGEMAP_MARKUP)
+      - allego:     ALLEGO_OWN_AC on Allego poles, CPO rate elsewhere
+      - shell:      fixed SHELL_FIXED_OTHER_AC (unless own Shell pole)
+      - chargemap:  CPO rate * (1 + CHARGEMAP_MARKUP)
 
     Otherwise fall back to CPO_FALLBACK table.
     """
     if cpo_rate is None:
         return get_fallback_pricing(operator_name)
 
+    op_lower = (operator_name or "").lower()
+
     # Detect Shell-own poles to use their own rate
-    is_shell_pole = "shell" in (operator_name or "").lower()
+    is_shell_pole = "shell" in op_lower
     shell_price = round(cpo_rate * 0.95, 4) if is_shell_pole else SHELL_FIXED_OTHER_AC
+
+    # Allego uses fixed rate on own network, CPO rate elsewhere
+    is_allego_pole = "allego" in op_lower
+    allego_price = ALLEGO_OWN_AC if is_allego_pole else round(cpo_rate, 4)
 
     return {
         "vattenfall":  round(cpo_rate, 4),
         "laadkompas":  round(cpo_rate, 4),
+        "allego":      allego_price,
         "shell":       shell_price,
         "chargemap":   round(cpo_rate * (1 + CHARGEMAP_MARKUP), 4),
         "_source":     "ndw",
