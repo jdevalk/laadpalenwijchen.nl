@@ -278,10 +278,6 @@ footer {
       <div class="hstat-val" id="stat-avail" style="color:var(--green)">—</div>
       <div class="hstat-lbl">Beschikbaar</div>
     </div>
-    <div class="hstat">
-      <div class="hstat-val" id="stat-best" style="font-size:13px">—</div>
-      <div class="hstat-lbl">Meest Voordelig</div>
-    </div>
   </div>
   <button class="locate-btn" id="locate-btn" onclick="locateMe()">📍 Mijn locatie</button>
   <div class="data-age">
@@ -497,14 +493,6 @@ function applyFilter() {
 
 // ── SIDEBAR ──────────────────────────────────────────────────────────────────
 function renderList(pts) {
-  // Tally wins
-  const wins = {};
-  pts.forEach(p => { if (p.best?.pass_id) wins[p.best.pass_id] = (wins[p.best.pass_id]||0)+1; });
-  const topId = Object.entries(wins).sort((a,b)=>b[1]-a[1])[0]?.[0];
-  const el = document.getElementById('stat-best');
-  el.textContent = passName(topId).split(' ')[0] || '—';
-  el.style.color = passColor(topId);
-
   document.getElementById('list').innerHTML = pts.map(pt => {
     const c = pt.best ? passColor(pt.best.pass_id) : '#9ca3af';
     const pricing = pt.pricing || {};
