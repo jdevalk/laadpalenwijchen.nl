@@ -23,8 +23,8 @@ index.html leest wijchen-data.json
 ### 1. Fork / clone deze repo
 
 ```bash
-git clone https://github.com/jouw-naam/wijchen-laadpas
-cd wijchen-laadpas
+git clone https://github.com/joostdevalk/laadpalenwijchen.nl
+cd laadpalenwijchen.nl
 ```
 
 ### 2. Cloudflare Pages koppelen
@@ -89,7 +89,7 @@ Tarieven zijn indicatief. Check altijd de app voor de exacte prijs per paal.
 ## Bestanden
 
 ```
-wijchen-laadpas/
+laadpalenwijchen.nl/
 ├── index.html              ← de website (leest wijchen-data.json)
 ├── wijchen-data.json       ← gegenereerd door process.py, geserveerd door Pages
 ├── process.py              ← NDW downloader + preprocessor
