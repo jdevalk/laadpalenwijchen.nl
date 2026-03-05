@@ -94,6 +94,13 @@ header {
 }
 .chip-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
 .chip-fee { font-family:'IBM Plex Mono',monospace; font-size:9px; opacity:.65; }
+.chip-op {
+  display:flex; align-items:center; gap:4px; font-size:10px; font-weight:500;
+  padding:3px 8px; border-radius:100px; cursor:pointer;
+  border:1.5px solid var(--border); background:white; white-space:nowrap; color:var(--text2);
+}
+.chip-op.active { background:var(--text); color:white; border-color:var(--text); }
+.chip-op .chip-count { font-family:'IBM Plex Mono',monospace; font-size:9px; opacity:.6; }
 .list { flex:1; overflow-y:auto; padding:10px; scrollbar-width:thin; scrollbar-color:var(--border2) transparent; }
 
 /* CARDS */
@@ -293,6 +300,8 @@ footer {
     <div class="sidebar-top">
       <div class="sidebar-lbl">5 passen vergeleken</div>
       <div class="pass-chips" id="pass-chips"></div>
+      <div class="sidebar-lbl" style="margin-top:10px">Aanbieder</div>
+      <div class="pass-chips" id="operator-chips"></div>
     </div>
     <div class="list" id="list">
       <div class="empty">Laden…</div>
@@ -315,6 +324,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
 }).addTo(map);
 
 let markers = [], points = [], passes = [], activeId = null, locMarker = null;
+let activeOperator = null; // null = show all
 
 // ── BOTTOM SHEET (mobile) ────────────────────────────────────────────────────
 (function() {
@@ -428,6 +438,43 @@ function makePopup(pt) {
     <div class="pop-rows">${rows}</div>
     ${sourceHtml}
   </div>`;
+}
+
+// ── OPERATOR FILTER ──────────────────────────────────────────────────────────
+function renderOperatorChips() {
+  const counts = {};
+  points.forEach(p => { counts[p.operator] = (counts[p.operator]||0) + 1; });
+  const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+  document.getElementById('operator-chips').innerHTML =
+    `<div class="chip-op${!activeOperator ? ' active' : ''}" onclick="filterOperator(null)">Alle</div>` +
+    sorted.map(([op, n]) =>
+      `<div class="chip-op${activeOperator === op ? ' active' : ''}" onclick="filterOperator('${op.replace(/'/g,"\\'")}')">
+        ${op} <span class="chip-count">${n}</span>
+      </div>`
+    ).join('');
+}
+
+function filterOperator(op) {
+  activeOperator = (activeOperator === op) ? null : op;
+  applyFilter();
+}
+
+function applyFilter() {
+  const filtered = activeOperator ? points.filter(p => p.operator === activeOperator) : points;
+  renderOperatorChips();
+  renderList(filtered);
+  // Show/hide markers
+  markers.forEach(m => {
+    const pt = points.find(p => p.id === m._pid);
+    if (!activeOperator || (pt && pt.operator === activeOperator)) {
+      if (!map.hasLayer(m)) m.addTo(map);
+    } else {
+      if (map.hasLayer(m)) map.removeLayer(m);
+    }
+  });
+  // Update stats for filtered view
+  document.getElementById('stat-total').textContent = filtered.length;
+  document.getElementById('stat-avail').textContent = filtered.filter(p => p.available).length;
 }
 
 // ── SIDEBAR ──────────────────────────────────────────────────────────────────
@@ -633,6 +680,9 @@ async function init() {
         <div class="chip-dot"></div>${p.name}
         ${p.monthly > 0 ? `<span class="chip-fee">€${p.monthly}/mo</span>` : ''}
       </div>`).join('');
+
+    // Render operator filter chips
+    renderOperatorChips();
 
     // Stats (availability will be updated by OCM overlay below)
     document.getElementById('stat-total').textContent = points.length;
