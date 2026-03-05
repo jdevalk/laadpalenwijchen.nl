@@ -80,7 +80,7 @@ open data bestanden worden dagelijks geregenereerd.
 |-----|------------|---------|
 | Vattenfall InCharge | €0 | Concessietarief Gelderland/Overijssel: €0,3624/kWh |
 | Laadkompas | €4.78/mo | CPO-basistarief (geen starttarief met abo) |
-| Allego | €0 | €0,60/kWh vast op eigen netwerk, CPO-tarief elders |
+| Allego | €0 | Max. €0,62/kWh op eigen netwerk (range €0,41–€0,62), CPO-tarief elders |
 | Shell Recharge | €0 | €0,55 vaste prijs overige AC-palen (2025) |
 | Chargemap | €0 | CPO-tarief + ~12% opslag |
 

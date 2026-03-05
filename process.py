@@ -64,15 +64,16 @@ PASSES = [
     {"id": "chargemap",  "name": "Chargemap",      "color": "#7c3aed", "monthly": 0},
 ]
 
-# Allego own-network AC rate (allego.eu/nl/prijzen, effective Jan 2025)
-ALLEGO_OWN_AC = 0.60
+# Allego own-network AC rate: €0.41–€0.62/kWh (varies per location)
+# Using upper bound as conservative estimate (allego.eu/nl/prijzen, Jan 2025)
+ALLEGO_OWN_AC = 0.62
 
 # Per-CPO pricing overrides (when CPO rate not available from NDW tariffs).
 # Keyed by lowercase operator name substring.
 # Vattenfall/Nuon: €0,3624/kWh Gelderland & Overijssel (incharge.vattenfall.nl/onze-tarieven)
 CPO_FALLBACK = {
     "vattenfall": {"vattenfall": 0.3624, "laadkompas": 0.3624, "allego": 0.60, "shell": 0.55, "chargemap": 0.41},
-    "allego":     {"vattenfall": 0.62, "laadkompas": 0.60, "allego": 0.60, "shell": 0.60, "chargemap": 0.67},
+    "allego":     {"vattenfall": 0.62, "laadkompas": 0.60, "allego": 0.62, "shell": 0.60, "chargemap": 0.67},
     "shell":      {"vattenfall": 0.58, "laadkompas": 0.56, "allego": 0.60, "shell": 0.48, "chargemap": 0.59},
     "e-flux":     {"vattenfall": 0.42, "laadkompas": 0.40, "allego": 0.60, "shell": 0.55, "chargemap": 0.45},
     "road":       {"vattenfall": 0.42, "laadkompas": 0.40, "allego": 0.60, "shell": 0.55, "chargemap": 0.45},
