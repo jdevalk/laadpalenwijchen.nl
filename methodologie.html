@@ -131,7 +131,7 @@ footer a { color:var(--muted); }
   <p>Voor live beschikbaarheid wordt de Open Charge Map API elke 5 minuten client-side bevraagd. Laadpunten die in OCM voorkomen maar niet in NDW worden apart getoond als "Niet in NDW". Deze punten hebben geen tariefdata.</p>
 
   <h2>Tariefberekening</h2>
-  <p>Per laadpunt worden de kosten voor 5 laadpassen berekend. De berekening hangt af van de beschikbaarheid van NDW-tariefdata.</p>
+  <p>Per laadpunt worden de kosten voor 4 laadpassen berekend. De berekening hangt af van de beschikbaarheid van NDW-tariefdata.</p>
 
   <h3>Als NDW-tarief beschikbaar is</h3>
   <p>Het CPO-tarief (energieprijs in &euro;/kWh) wordt uit het OCPI-tariefobject gehaald. Prijzen exclusief BTW worden met 21% verhoogd. Vervolgens:</p>
@@ -139,7 +139,6 @@ footer a { color:var(--muted); }
     <tr><th>Pas</th><th>Berekening</th></tr>
     <tr><td>Vattenfall</td><td>CPO-tarief (1:1 doorgifte)</td></tr>
     <tr><td>Laadkompas</td><td>CPO-tarief (1:1, abonnement &euro;4,78/mnd)</td></tr>
-    <tr><td>ChargePoint</td><td>CPO-tarief (1:1 doorgifte)</td></tr>
     <tr><td>Shell Recharge</td><td>&euro;0,55/kWh vast tarief (niet-Shell palen) of CPO-tarief &times; 0,95 (eigen palen)</td></tr>
     <tr><td>Chargemap</td><td>CPO-tarief &times; 1,12 (12% opslag)</td></tr>
   </table>
