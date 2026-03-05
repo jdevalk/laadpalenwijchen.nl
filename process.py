@@ -35,7 +35,7 @@ LAT_MIN, LAT_MAX = 51.770, 51.850
 LNG_MIN, LNG_MAX = 5.670, 5.810
 
 HEADERS = {
-    "User-Agent": "laadpalenwijchen.nl/1.0 (github.com/joostdevalk/laadpalenwijchen.nl)",
+    "User-Agent": "laadpalenwijchen.nl/1.0 (github.com/jdevalk/laadpalenwijchen.nl)",
     "Accept-Encoding": "identity",
 }
 

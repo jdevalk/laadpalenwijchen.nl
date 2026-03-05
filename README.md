@@ -23,7 +23,7 @@ index.html leest wijchen-data.json
 ### 1. Fork / clone deze repo
 
 ```bash
-git clone https://github.com/joostdevalk/laadpalenwijchen.nl
+git clone https://github.com/jdevalk/laadpalenwijchen.nl
 cd laadpalenwijchen.nl
 ```
 
