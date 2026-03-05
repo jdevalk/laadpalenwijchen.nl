@@ -371,7 +371,7 @@ function locateMe() {
 
 // ── MARKER ──────────────────────────────────────────────────────────────────
 function makeIcon(pt) {
-  const c = passColor(pt.best.pass_id);
+  const c = pt.best ? passColor(pt.best.pass_id) : '#9ca3af';
   const fast = pt.max_power >= 50;
   return L.divIcon({
     className: '',
@@ -400,7 +400,21 @@ function makePopup(pt) {
   const sBg  = pt.available ? 'var(--green-bg)' : 'var(--red-bg)';
   const sCo  = pt.available ? '#14532d' : '#7f1d1d';
   const sLbl = pt.available ? 'Beschikbaar' : 'Bezet';
-  const wc   = passColor(pt.best.pass_id);
+
+  if (pt._ocm_only) {
+    return `<div class="pop">
+      <div class="pop-head">
+        <div class="pop-name">${pt.name}</div>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;
+          padding:2px 7px;border-radius:100px;background:${sBg};color:${sCo}">${sLbl}</span>
+      </div>
+      <div class="pop-op">${pt.operator} · ${(pt.connectors||[]).slice(0,2).join(' · ')}</div>
+      ${pt.max_power ? `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">${pt.max_power} kW · ${pt.num_evses} connector${pt.num_evses !== 1 ? 's' : ''}</div>` : ''}
+      <div style="margin-top:4px;font-size:10px;color:#92400e">Alleen via Open Charge Map · geen tariefdata</div>
+    </div>`;
+  }
+
+  const wc = passColor(pt.best.pass_id);
 
   const rows = passes.map(p => {
     const price = (pt.pricing || {})[p.id];
@@ -488,8 +502,27 @@ function renderList(pts) {
   el.style.color = passColor(topId);
 
   document.getElementById('list').innerHTML = pts.map(pt => {
-    const c = passColor(pt.best?.pass_id);
+    const c = pt.best ? passColor(pt.best.pass_id) : '#9ca3af';
     const pricing = pt.pricing || {};
+
+    if (pt._ocm_only) {
+      return `<div class="card" style="--c:${c}" data-id="${pt.id}" onclick="selectCard('${pt.id}')">
+        <div class="card-stripe"></div>
+        <div class="card-inner">
+          <div class="card-head">
+            <div class="card-name">${pt.name}</div>
+            <span class="badge ${pt.available ? 'badge-ok' : 'badge-off'}">${pt.available ? 'OK' : 'Bezet'}</span>
+          </div>
+          <div class="card-sub">${pt.operator} · ${pt.address}</div>
+          <div class="conn-tags">
+            ${pt.max_power ? `<span class="conn-tag">${pt.max_power}kW</span>` : ''}
+            ${(pt.connectors||[]).slice(0,2).map(t => `<span class="conn-tag">${t}</span>`).join('')}
+            ${pt.num_evses > 1 ? `<span class="conn-tag">${pt.num_evses}×</span>` : ''}
+          </div>
+          <span class="source-pill source-fallback">Alleen via Open Charge Map · geen tariefdata</span>
+        </div>
+      </div>`;
+    }
 
     const bk = passes.map(p => {
       const price = pricing[p.id];
@@ -585,45 +618,84 @@ function haversineM(lat1, lng1, lat2, lng2) {
 async function fetchOCMStatus() {
   const [lat, lng] = WIJCHEN;
   const url = `/api/ocm?output=json&countrycode=NL`
-    + `&latitude=${lat}&longitude=${lng}&distance=5&distanceunit=KM`
-    + `&maxresults=100&compact=true&verbose=false`;
+    + `&latitude=${lat}&longitude=${lng}&distance=8&distanceunit=KM`
+    + `&maxresults=500&compact=false&verbose=true`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`OCM ${res.status}`);
   return res.json();
 }
 
+const BBOX = { latMin: 51.770, latMax: 51.850, lngMin: 5.570, lngMax: 5.810 };
+
 function applyStatusOverlay(ocmResults) {
-  // Build a fast lookup: for each OCM result store its lat/lng + operational flag
-  const ocmPoints = ocmResults
-    .filter(r => r.AddressInfo?.Latitude && r.AddressInfo?.Longitude)
-    .map(r => ({
-      lat:       r.AddressInfo.Latitude,
-      lng:       r.AddressInfo.Longitude,
-      available: (r.StatusType?.IsOperational !== false) && (r.StatusType?.IsOperational != null),
-      statusId:  r.StatusType?.ID,
-    }));
-
   let matched = 0;
+  const matchedOcmIds = new Set();
 
-  points.forEach(pt => {
-    // Find closest OCM point within threshold
-    let bestDist = Infinity, bestOcm = null;
-    for (const o of ocmPoints) {
-      const d = haversineM(pt.lat, pt.lng, o.lat, o.lng);
-      if (d < bestDist) { bestDist = d; bestOcm = o; }
+  // Match OCM results to existing NDW points for live status
+  ocmResults.forEach(r => {
+    const ai = r.AddressInfo;
+    if (!ai?.Latitude || !ai?.Longitude) return;
+    const available = (r.StatusType?.IsOperational !== false) && (r.StatusType?.IsOperational != null);
+
+    let bestDist = Infinity, bestPt = null;
+    for (const pt of points) {
+      const d = haversineM(pt.lat, pt.lng, ai.Latitude, ai.Longitude);
+      if (d < bestDist) { bestDist = d; bestPt = pt; }
     }
-    if (bestOcm && bestDist <= MAX_MATCH_M) {
-      pt.available        = bestOcm.available;
-      pt.status_source    = 'ocm';
-      pt.status_dist_m    = Math.round(bestDist);
+    if (bestPt && bestDist <= MAX_MATCH_M) {
+      bestPt.available = available;
+      bestPt.status_source = 'ocm';
+      bestPt.status_dist_m = Math.round(bestDist);
+      matchedOcmIds.add(r.ID);
       matched++;
-    } else {
-      pt.status_source = 'ndw_static';
-      // Keep whatever available flag came from NDW snapshot
     }
   });
 
-  return matched;
+  // Set unmatched NDW points to static status
+  points.forEach(pt => { if (pt.status_source !== 'ocm') pt.status_source = 'ndw_static'; });
+
+  // Add unmatched OCM points that are within the bbox
+  const newPoints = [];
+  ocmResults.forEach(r => {
+    if (matchedOcmIds.has(r.ID)) return;
+    const ai = r.AddressInfo;
+    if (!ai?.Latitude || !ai?.Longitude) return;
+    const lat = ai.Latitude, lng = ai.Longitude;
+    if (lat < BBOX.latMin || lat > BBOX.latMax || lng < BBOX.lngMin || lng > BBOX.lngMax) return;
+
+    const op = r.OperatorInfo?.Title || 'Onbekend';
+    const conns = r.Connections || [];
+    const connTypes = [...new Set(conns.map(c => {
+      const t = c.ConnectionType?.Title || '';
+      if (t.includes('Type 2')) return 'Type 2';
+      if (t.includes('CCS')) return 'CCS';
+      if (t.includes('CHAdeMO')) return 'CHAdeMO';
+      return t || 'Onbekend';
+    }))];
+    const maxPower = Math.max(...conns.map(c => c.PowerKW || 0), 0);
+    const available = (r.StatusType?.IsOperational !== false) && (r.StatusType?.IsOperational != null);
+
+    newPoints.push({
+      id: `ocm-${r.ID}`,
+      name: ai.Title || ai.AddressLine1 || 'Laadpunt',
+      address: [ai.AddressLine1, ai.Town].filter(Boolean).join(', '),
+      lat, lng,
+      operator: op,
+      connectors: connTypes,
+      max_power: maxPower,
+      num_evses: conns.length,
+      available,
+      statuses: [available ? 'AVAILABLE' : 'UNKNOWN'],
+      best: null,
+      pricing: {},
+      pricing_source: 'ocm_only',
+      cpo_rate: null,
+      status_source: 'ocm',
+      _ocm_only: true,
+    });
+  });
+
+  return { matched, newPoints };
 }
 
 function refreshAvailabilityUI() {
@@ -651,13 +723,35 @@ function refreshAvailabilityUI() {
 async function refreshStatus() {
   try {
     const ocm = await fetchOCMStatus();
-    const matched = applyStatusOverlay(ocm);
+    const { matched, newPoints } = applyStatusOverlay(ocm);
+
+    // Add OCM-only points (first refresh only)
+    if (newPoints.length > 0) {
+      // Remove any previous OCM-only points
+      points = points.filter(p => !p._ocm_only);
+      markers = markers.filter(m => {
+        if (m._pid?.startsWith('ocm-')) { map.removeLayer(m); return false; }
+        return true;
+      });
+      // Add new ones
+      newPoints.forEach(pt => {
+        points.push(pt);
+        const m = L.marker([pt.lat, pt.lng], { icon: makeIcon(pt) });
+        m.bindPopup(makePopup(pt), { maxWidth: 280 });
+        m._pid = pt.id;
+        m.addTo(map);
+        markers.push(m);
+      });
+      renderOperatorChips();
+      applyFilter();
+    }
+
     refreshAvailabilityUI();
     const now = new Date();
     const hh = String(now.getHours()).padStart(2,'0');
     const mm = String(now.getMinutes()).padStart(2,'0');
     document.getElementById('status-age-text').textContent = `status ${hh}:${mm}`;
-    console.log(`OCM status: ${ocm.length} results, ${matched}/${points.length} matched`);
+    console.log(`OCM status: ${ocm.length} results, ${matched}/${points.length} matched, ${newPoints.length} OCM-only added`);
   } catch (e) {
     console.warn('OCM status fetch failed:', e.message);
     document.getElementById('status-age-text').textContent = 'status ?';
