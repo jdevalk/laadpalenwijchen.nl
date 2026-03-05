@@ -64,8 +64,9 @@ PASSES = [
 
 # Per-CPO pricing overrides (when CPO rate not available from NDW tariffs).
 # Keyed by lowercase operator name substring.
+# Vattenfall/Nuon: €0,3624/kWh Gelderland & Overijssel (incharge.vattenfall.nl/onze-tarieven)
 CPO_FALLBACK = {
-    "vattenfall": {"vattenfall": 0.31, "laadkompas": 0.31, "chargepoint": 0.31, "shell": 0.53, "chargemap": 0.35},
+    "vattenfall": {"vattenfall": 0.3624, "laadkompas": 0.3624, "chargepoint": 0.3624, "shell": 0.53, "chargemap": 0.41},
     "allego":     {"vattenfall": 0.62, "laadkompas": 0.60, "chargepoint": 0.60, "shell": 0.60, "chargemap": 0.67},
     "shell":      {"vattenfall": 0.58, "laadkompas": 0.56, "chargepoint": 0.53, "shell": 0.48, "chargemap": 0.59},
     "e-flux":     {"vattenfall": 0.42, "laadkompas": 0.40, "chargepoint": 0.40, "shell": 0.53, "chargemap": 0.45},
@@ -74,7 +75,7 @@ CPO_FALLBACK = {
     "greenflux":  {"vattenfall": 0.44, "laadkompas": 0.42, "chargepoint": 0.42, "shell": 0.57, "chargemap": 0.47},
     "ecotap":     {"vattenfall": 0.34, "laadkompas": 0.32, "chargepoint": 0.32, "shell": 0.53, "chargemap": 0.36},
     "eneco":      {"vattenfall": 0.42, "laadkompas": 0.40, "chargepoint": 0.40, "shell": 0.53, "chargemap": 0.45},
-    "nuon":       {"vattenfall": 0.31, "laadkompas": 0.31, "chargepoint": 0.31, "shell": 0.53, "chargemap": 0.35},
+    "nuon":       {"vattenfall": 0.3624, "laadkompas": 0.3624, "chargepoint": 0.3624, "shell": 0.53, "chargemap": 0.41},
     "last mile":  {"vattenfall": 0.37, "laadkompas": 0.35, "chargepoint": 0.35, "shell": 0.53, "chargemap": 0.39},
     "plugwise":   {"vattenfall": 0.36, "laadkompas": 0.34, "chargepoint": 0.34, "shell": 0.53, "chargemap": 0.38},
     "default":    {"vattenfall": 0.39, "laadkompas": 0.37, "chargepoint": 0.36, "shell": 0.53, "chargemap": 0.41},
