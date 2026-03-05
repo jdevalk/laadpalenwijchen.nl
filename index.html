@@ -432,7 +432,6 @@ function formatAge(isoString) {
 // NDW data (locations + pricing) is the primary source; OCM is status-only.
 // Matching strategy: nearest NDW point within MAX_MATCH_M metres.
 
-const OCM_KEY   = 'fd5f3d52-fcce-48da-b85a-1dc54b30c56a';
 const MAX_MATCH_M = 30; // metres — same charger threshold
 
 function haversineM(lat1, lng1, lat2, lng2) {
@@ -448,7 +447,7 @@ async function fetchOCMStatus() {
   const [lat, lng] = WIJCHEN;
   const url = `/api/ocm?output=json&countrycode=NL`
     + `&latitude=${lat}&longitude=${lng}&distance=5&distanceunit=KM`
-    + `&maxresults=100&compact=true&verbose=false&key=${OCM_KEY}`;
+    + `&maxresults=100&compact=true&verbose=false`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`OCM ${res.status}`);
   return res.json();
