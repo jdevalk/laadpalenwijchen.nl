@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Methodologie · Laadpalen Wijchen</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f0f2f5;
+  --surface: #ffffff;
+  --border: #e4e7ed;
+  --text: #111827;
+  --text2: #374151;
+  --muted: #9ca3af;
+  --green: #16a34a;
+  --amber: #d97706;
+  --amber-bg: #fef3c7;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; display: flex; flex-direction: column;
+}
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; height: 52px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+header a { text-decoration: none; color: inherit; }
+.wordmark { display:flex; align-items:center; gap:11px; }
+.wordmark-icon {
+  width:32px; height:32px; background:var(--text); border-radius:8px;
+  display:flex; align-items:center; justify-content:center; font-size:15px;
+}
+.wordmark-text h1 {
+  font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700;
+  letter-spacing:-.2px; color:var(--text);
+}
+.wordmark-text span { font-size:10px; color:var(--muted); display:block; margin-top:1px; }
+.back-link {
+  font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted);
+  text-decoration:none;
+}
+.back-link:hover { color:var(--text2); }
+main {
+  flex:1; max-width:720px; width:100%; margin:0 auto;
+  padding:32px 20px 48px;
+}
+h2 {
+  font-family:'IBM Plex Mono',monospace; font-size:18px; font-weight:700;
+  margin-bottom:8px; margin-top:32px;
+}
+h2:first-child { margin-top:0; }
+h3 {
+  font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600;
+  margin-bottom:4px; margin-top:20px;
+}
+p { font-size:14px; line-height:1.7; color:var(--text2); margin-bottom:12px; }
+ul, ol { font-size:14px; line-height:1.7; color:var(--text2); margin:0 0 12px 20px; }
+li { margin-bottom:4px; }
+code {
+  font-family:'IBM Plex Mono',monospace; font-size:12px;
+  background:var(--surface); border:1px solid var(--border);
+  padding:1px 5px; border-radius:4px;
+}
+table {
+  width:100%; border-collapse:collapse; margin:12px 0 16px;
+  font-size:13px;
+}
+th, td {
+  padding:6px 10px; text-align:left; border-bottom:1px solid var(--border);
+}
+th {
+  font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.5px; color:var(--muted);
+  background:var(--surface);
+}
+td { color:var(--text2); }
+.note {
+  background:var(--amber-bg); border:1px solid #fcd34d; border-radius:6px;
+  padding:10px 14px; font-size:12px; color:#92400e; margin:16px 0;
+  font-family:'IBM Plex Mono',monospace;
+}
+footer {
+  padding:5px 16px; background:var(--surface); border-top:1px solid var(--border);
+  display:flex; justify-content:center; align-items:center;
+  font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted); flex-shrink:0;
+}
+footer a { color:var(--muted); }
+@media (max-width: 767px) {
+  header { padding:0 12px; height:44px; }
+  main { padding:20px 14px 32px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/">
+    <div class="wordmark">
+      <div class="wordmark-icon">⚡</div>
+      <div class="wordmark-text">
+        <h1>Laadpalen Wijchen</h1>
+        <span>Wijchen · Gelderland</span>
+      </div>
+    </div>
+  </a>
+  <a href="/" class="back-link">&larr; Terug naar kaart</a>
+</header>
+
+<main>
+  <h2>Methodologie</h2>
+  <p>Deze pagina beschrijft hoe de data op Laadpalen Wijchen wordt verzameld, verwerkt en weergegeven. Alle code is open source en beschikbaar op <a href="https://github.com/jdevalk/laadpalenwijchen.nl">GitHub</a>.</p>
+
+  <h2>Databronnen</h2>
+
+  <h3>NDW (Nationaal Dataportaal Wegverkeer)</h3>
+  <p>De primaire databron is NDW open data (<a href="https://opendata.ndw.nu">opendata.ndw.nu</a>). Elke dag om 06:00 UTC worden twee bestanden opgehaald:</p>
+  <ul>
+    <li><strong>Locaties</strong> &mdash; alle publieke laadpunten in Nederland met adres, operator, connectoren en vermogen.</li>
+    <li><strong>Tarieven</strong> &mdash; OCPI 2.2.1 tariefobjecten met energieprijzen per kWh, gekoppeld aan individuele connectoren.</li>
+  </ul>
+  <p>De data wordt gefilterd op een bounding box rond de gemeente Wijchen (lat 51.770&ndash;51.850, lng 5.670&ndash;5.810) die alle kernen van de gemeente omvat.</p>
+
+  <h3>Open Charge Map (OCM)</h3>
+  <p>Voor live beschikbaarheid wordt de Open Charge Map API elke 5 minuten client-side bevraagd. Laadpunten die in OCM voorkomen maar niet in NDW worden apart getoond als "Niet in NDW". Deze punten hebben geen tariefdata.</p>
+
+  <h2>Tariefberekening</h2>
+  <p>Per laadpunt worden de kosten voor 5 laadpassen berekend. De berekening hangt af van de beschikbaarheid van NDW-tariefdata.</p>
+
+  <h3>Als NDW-tarief beschikbaar is</h3>
+  <p>Het CPO-tarief (energieprijs in &euro;/kWh) wordt uit het OCPI-tariefobject gehaald. Prijzen exclusief BTW worden met 21% verhoogd. Vervolgens:</p>
+  <table>
+    <tr><th>Pas</th><th>Berekening</th></tr>
+    <tr><td>Vattenfall</td><td>CPO-tarief (1:1 doorgifte)</td></tr>
+    <tr><td>Laadkompas</td><td>CPO-tarief (1:1, abonnement &euro;4,78/mnd)</td></tr>
+    <tr><td>ChargePoint</td><td>CPO-tarief (1:1 doorgifte)</td></tr>
+    <tr><td>Shell Recharge</td><td>&euro;0,53/kWh vast tarief (niet-Shell palen) of CPO-tarief &times; 0,95 (eigen palen)</td></tr>
+    <tr><td>Chargemap</td><td>CPO-tarief &times; 1,12 (12% opslag)</td></tr>
+  </table>
+
+  <h3>Als NDW-tarief ontbreekt</h3>
+  <p>Wanneer er geen tariefdata beschikbaar is vanuit NDW (dit komt regelmatig voor), worden twee fallback-methoden gebruikt:</p>
+  <ol>
+    <li><strong>Landelijke mediaan</strong> &mdash; de mediaan van alle NDW-tarieven voor dezelfde operator in heel Nederland. Dit geeft een goede indicatie voor operators met een landelijk uniform tarief.</li>
+    <li><strong>Vaste schatting</strong> &mdash; een handmatig onderhouden tabel met geschatte tarieven per operator en per pas, gebaseerd op publiek bekende prijzen.</li>
+  </ol>
+
+  <div class="note">Tarieven zijn altijd indicatief. Check altijd de app van je laadpas voor het actuele tarief voordat je gaat laden.</div>
+
+  <h3>Bronvermelding in de interface</h3>
+  <p>Bij elk laadpunt wordt de bron van het tarief getoond:</p>
+  <ul>
+    <li><strong>NDW tarief</strong> &mdash; direct uit NDW-tariefdata, meest betrouwbaar.</li>
+    <li><strong>Schatting (mediaan)</strong> &mdash; gebaseerd op de landelijke mediaan voor de betreffende operator.</li>
+    <li><strong>Schatting (vaste tabel)</strong> &mdash; uit de handmatige fallback-tabel.</li>
+  </ul>
+
+  <h2>Beschikbaarheid</h2>
+  <p>De live beschikbaarheidsstatus komt van Open Charge Map. Elk NDW-laadpunt wordt op basis van co&ouml;rdinaten gematcht met het dichtstbijzijnde OCM-resultaat (maximaal 15 meter afstand). Als er een match is, wordt de OCM-status overgenomen. Zonder match wordt de statische NDW-status getoond.</p>
+
+  <h2>Data-update</h2>
+  <p>Een GitHub Actions workflow draait dagelijks om 06:00 UTC. Het script downloadt de nieuwste NDW-data, verwerkt deze en commit het resultaat (<code>wijchen-data.json</code>) als er wijzigingen zijn. Cloudflare Pages deployt automatisch bij elke push naar <code>main</code>.</p>
+
+  <h2>Beperkingen</h2>
+  <ul>
+    <li>Niet alle laadpunten in NDW hebben tariefdata; voor sommige operators is de dekking beperkt.</li>
+    <li>Starttarieven, tijdtarieven en blokkeerkosten worden niet meegenomen in de berekening.</li>
+    <li>Het maandelijkse abonnement van Laadkompas (&euro;4,78) wordt niet verdisconteerd in de per-kWh prijs.</li>
+    <li>Beschikbaarheidsstatus van OCM kan vertraagd zijn of ontbreken voor sommige palen.</li>
+    <li>Laadpunten die alleen via OCM bekend zijn hebben geen tariefinformatie.</li>
+  </ul>
+
+  <h2>Open source</h2>
+  <p>De volledige broncode is beschikbaar op <a href="https://github.com/jdevalk/laadpalenwijchen.nl">github.com/jdevalk/laadpalenwijchen.nl</a>. Het dataverwerkingsscript (<code>process.py</code>) heeft geen externe dependencies &mdash; alleen Python 3.12 standaardbibliotheek.</p>
+</main>
+
+<footer>
+  <span><a href="/">Laadpalen Wijchen</a> · open source op <a href="https://github.com/jdevalk/laadpalenwijchen.nl">GitHub</a></span>
+</footer>
+
+</body>
+</html>
