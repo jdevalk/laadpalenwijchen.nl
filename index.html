@@ -446,7 +446,7 @@ function haversineM(lat1, lng1, lat2, lng2) {
 
 async function fetchOCMStatus() {
   const [lat, lng] = WIJCHEN;
-  const url = `https://api.openchargemap.io/v3/poi/?output=json&countrycode=NL`
+  const url = `/api/ocm?output=json&countrycode=NL`
     + `&latitude=${lat}&longitude=${lng}&distance=5&distanceunit=KM`
     + `&maxresults=100&compact=true&verbose=false&key=${OCM_KEY}`;
   const res = await fetch(url);
