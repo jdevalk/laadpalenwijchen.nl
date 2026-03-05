@@ -1,6 +1,6 @@
 # Laadpalen Wijchen
 
-Vergelijkt 5 laadpassen op alle publieke laadpunten in Wijchen en omgeving.
+Vergelijkt 4 laadpassen op alle publieke laadpunten in Wijchen en omgeving.
 
 **Live data van NDW** (Nationaal Dataportaal Wegverkeer) — dagelijks bijgewerkt.
 
@@ -78,10 +78,9 @@ open data bestanden worden dagelijks geregenereerd.
 
 | Pas | Maandkosten | Methode |
 |-----|------------|---------|
-| Vattenfall InCharge | €0 | Concessietarief Gelderland/Overijssel: €0.31/kWh |
+| Vattenfall InCharge | €0 | Concessietarief Gelderland/Overijssel: €0,3624/kWh |
 | Laadkompas | €4.78/mo | CPO-basistarief (geen starttarief met abo) |
-| ChargePoint | €0 | CPO-tarief 1:1, geen opslag |
-| Shell Recharge | €0 | €0.53 vaste prijs overige AC-palen (2025) |
+| Shell Recharge | €0 | €0,55 vaste prijs overige AC-palen (2025) |
 | Chargemap | €0 | CPO-tarief + ~12% opslag |
 
 Tarieven zijn indicatief. Check altijd de app voor de exacte prijs per paal.

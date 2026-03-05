@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Laadpalen Wijchen — a static site comparing 5 EV charging passes across all public charging points in Wijchen, NL. Deployed on Cloudflare Pages at laadpalenwijchen.nl.
+Laadpalen Wijchen — a static site comparing 4 EV charging passes across all public charging points in Wijchen, NL. Deployed on Cloudflare Pages at laadpalenwijchen.nl.
 
 ## Architecture
 
