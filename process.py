@@ -15,6 +15,7 @@ Run: python3 process.py
 
 import gzip
 import json
+import math
 import urllib.request
 import urllib.error
 import sys
@@ -29,11 +30,12 @@ TARIFFS_URL   = f"{NDW_BASE}/charging_point_tariffs_ocpi.json.gz"
 
 OUTPUT_FILE = "wijchen-data.json"
 
-# Bounding box: full municipality of Wijchen + small buffer
-# Covers Wijchen, Alverna, Woezik, Niftrik, Leur, Balgoij,
-# Bergharen, Hernen, Batenburg, Appeltern
-LAT_MIN, LAT_MAX = 51.770, 51.850
-LNG_MIN, LNG_MAX = 5.570, 5.810
+# Bounding box: used for fast pre-filter before precise polygon check
+LAT_MIN, LAT_MAX = 51.770, 51.870
+LNG_MIN, LNG_MAX = 5.590, 5.810
+
+# Municipality boundary polygon (from PDOK/CBS wijkenbuurten 2024)
+BOUNDARY_FILE = os.path.join(os.path.dirname(__file__) or ".", "wijchen-boundary.geojson")
 
 HEADERS = {
     "User-Agent": "laadpalenwijchen.nl/1.0 (github.com/jdevalk/laadpalenwijchen.nl)",
@@ -85,6 +87,33 @@ SHELL_FIXED_OTHER_AC = 0.55  # Shell Recharge fixed rate for non-Shell poles (20
 # Operators where national median is misleading (regional concessie rates)
 SKIP_OPERATOR_MEDIAN = {"vattenfall incharge"}
 CHARGEMAP_MARKUP     = 0.12  # ~12% markup on CPO rate
+
+
+def load_boundary() -> list:
+    """Load gemeente boundary polygon from GeoJSON file."""
+    with open(BOUNDARY_FILE) as f:
+        data = json.load(f)
+    geom = data["geometry"]
+    if geom["type"] == "Polygon":
+        return geom["coordinates"][0]
+    elif geom["type"] == "MultiPolygon":
+        # Use the largest polygon (outer ring of first polygon)
+        return max(geom["coordinates"], key=lambda p: len(p[0]))[0]
+    raise ValueError(f"Unsupported geometry type: {geom['type']}")
+
+
+def point_in_polygon(lng: float, lat: float, polygon: list) -> bool:
+    """Ray casting algorithm for point-in-polygon test."""
+    n = len(polygon)
+    inside = False
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon[i]
+        xj, yj = polygon[j]
+        if ((yi > lat) != (yj > lat)) and (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    return inside
 
 
 def fetch_gz(url: str) -> bytes:
@@ -183,12 +212,16 @@ def connector_type_label(conn: dict) -> str:
     return label_map.get(standard, standard)
 
 
-def process_location(loc: dict, tariff_map: dict, operator_median: Optional[dict] = None) -> Optional[dict]:
+def process_location(loc: dict, tariff_map: dict, operator_median: Optional[dict] = None, boundary: Optional[list] = None) -> Optional[dict]:
     coords = loc.get("coordinates", {})
     lat = float(coords.get("latitude", 0))
     lng = float(coords.get("longitude", 0))
 
+    # Fast bbox pre-filter
     if not (LAT_MIN <= lat <= LAT_MAX and LNG_MIN <= lng <= LNG_MAX):
+        return None
+    # Precise polygon check
+    if boundary and not point_in_polygon(lng, lat, boundary):
         return None
 
     operator = (loc.get("operator") or {}).get("name", "Onbekend")
@@ -344,14 +377,22 @@ def main():
     for op, rate in sorted(operator_median.items()):
         print(f"    {op}: €{rate:.4f}/kWh ({len(operator_rates[op])} samples)")
 
+    # ── Load municipality boundary ──────────────────────────────────────────
+    boundary = None
+    try:
+        boundary = load_boundary()
+        print(f"  Municipality boundary loaded ({len(boundary)} vertices)")
+    except FileNotFoundError:
+        print("  WARNING: wijchen-boundary.geojson not found, using bbox only")
+
     # ── Pass 2: filter + process with operator median as extra fallback ────
-    print(f"\n[4/4] Filtering to Wijchen bbox ({LAT_MIN}–{LAT_MAX}, {LNG_MIN}–{LNG_MAX})...")
+    print(f"\n[4/4] Filtering to gemeente Wijchen...")
     results = []
     ndw_priced = 0
     fallback_priced = 0
 
     for loc in locations:
-        processed = process_location(loc, tariff_map, operator_median)
+        processed = process_location(loc, tariff_map, operator_median, boundary)
         if processed:
             results.append(processed)
             if processed["pricing_source"] in ("ndw", "operator_median"):

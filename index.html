@@ -319,6 +319,32 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   subdomains: 'abcd', maxZoom: 19,
 }).addTo(map);
 
+// Municipality boundary overlay + polygon for point-in-polygon checks
+let boundaryPolygon = null;
+fetch('wijchen-boundary.geojson')
+  .then(r => r.json())
+  .then(geojson => {
+    L.geoJSON(geojson, {
+      style: { color: '#6b7280', weight: 2, opacity: 0.5, fillColor: '#6b7280', fillOpacity: 0.03, dashArray: '6 4' }
+    }).addTo(map);
+    const coords = geojson.geometry.type === 'Polygon'
+      ? geojson.geometry.coordinates[0]
+      : geojson.geometry.coordinates.reduce((a, b) => a[0].length > b[0].length ? a : b)[0];
+    boundaryPolygon = coords;
+  })
+  .catch(() => {});
+
+function pointInBoundary(lng, lat) {
+  if (!boundaryPolygon) return lat >= BBOX.latMin && lat <= BBOX.latMax && lng >= BBOX.lngMin && lng <= BBOX.lngMax;
+  const poly = boundaryPolygon;
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > lat) !== (yj > lat) && lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
 let markers = [], points = [], passes = [], activeId = null, locMarker = null;
 let activeOperator = null; // null = show all
 
@@ -653,7 +679,7 @@ function applyStatusOverlay(ocmResults) {
     const ai = r.AddressInfo;
     if (!ai?.Latitude || !ai?.Longitude) return;
     const lat = ai.Latitude, lng = ai.Longitude;
-    if (lat < BBOX.latMin || lat > BBOX.latMax || lng < BBOX.lngMin || lng > BBOX.lngMax) return;
+    if (!pointInBoundary(lng, lat)) return;
 
     const op = r.OperatorInfo?.Title || 'Onbekend';
     const conns = r.Connections || [];
