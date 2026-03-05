@@ -20,6 +20,7 @@ import urllib.error
 import sys
 import os
 from datetime import datetime, timezone
+from typing import Optional
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 NDW_BASE = "https://opendata.ndw.nu"
@@ -91,7 +92,7 @@ def fetch_gz(url: str) -> bytes:
     return gzip.decompress(compressed)
 
 
-def get_cpo_rate(tariff_id: str, tariff_map: dict) -> float | None:
+def get_cpo_rate(tariff_id: str, tariff_map: dict) -> Optional[float]:
     """
     Extract energy price (€/kWh) from an OCPI 2.2.1 tariff object.
     Returns None if not found or not an energy-priced tariff.
@@ -125,7 +126,7 @@ def get_fallback_pricing(operator_name: str) -> dict:
     return CPO_FALLBACK["default"]
 
 
-def build_pricing(cpo_rate: float | None, operator_name: str) -> dict:
+def build_pricing(cpo_rate: Optional[float], operator_name: str) -> dict:
     """
     Build the 5-pass pricing dict for a connector.
 
@@ -180,7 +181,7 @@ def connector_type_label(conn: dict) -> str:
     return label_map.get(standard, standard)
 
 
-def process_location(loc: dict, tariff_map: dict) -> dict | None:
+def process_location(loc: dict, tariff_map: dict) -> Optional[dict]:
     coords = loc.get("coordinates", {})
     lat = float(coords.get("latitude", 0))
     lng = float(coords.get("longitude", 0))
@@ -199,7 +200,7 @@ def process_location(loc: dict, tariff_map: dict) -> dict | None:
         evse_id    = evse.get("evse_id", "")
         status     = evse.get("status", "UNKNOWN")  # AVAILABLE, CHARGING, etc.
         for conn in evse.get("connectors", []):
-            tariff_ids = conn.get("tariff_ids", [])
+            tariff_ids = conn.get("tariff_ids") or []
             # Find the first tariff that yields a rate
             cpo_rate = None
             used_tariff_id = None
@@ -238,7 +239,7 @@ def process_location(loc: dict, tariff_map: dict) -> dict | None:
 
     # Deduplicate connector types for display
     conn_types = list(dict.fromkeys(c["type"] for c in connectors))
-    max_power  = max((c["power_kw"] for c in connectors), default=0)
+    max_power  = max((c["power_kw"] or 0 for c in connectors), default=0)
 
     return {
         "id":         loc.get("id", ""),
