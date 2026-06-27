@@ -1,11 +1,13 @@
 name: Update charging point data
 
 on:
-  schedule:
-    # Run at 06:00 UTC daily — NDW publishes overnight, fresh by morning NL time
-    - cron: "0 6 * * *"
+  # Daily scheduled run moved to the Mac Mini (launchd: com.jdevalk.laadpalenwijchen.update)
+  # to save GitHub Actions minutes. See ~/Code/laadpalenwijchen.nl-update.sh on `mini`.
+  # The schedule trigger below is intentionally disabled; kept here for reference.
+  # schedule:
+  #   - cron: "0 6 * * *"
   workflow_dispatch:
-    # Allow manual trigger from GitHub Actions UI
+    # Allow manual trigger from GitHub Actions UI (fallback if the Mini is down)
 
 jobs:
   update:
