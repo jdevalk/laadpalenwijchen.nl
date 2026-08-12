@@ -131,11 +131,23 @@ header {
 .user-dot { width:14px; height:14px; border:3px solid #fff; border-radius:50%; background:#111827; box-shadow:0 1px 5px rgba(0,0,0,.35); }
 .leaflet-popup-content-wrapper { border-radius:12px; border:1px solid var(--border2); box-shadow:0 8px 28px rgba(0,0,0,.12); }
 .leaflet-popup-content { margin:0; }
-.popup { min-width:235px; padding:12px 14px; }
+.popup { min-width:250px; max-width:300px; padding:12px 14px; }
 .popup h3 { margin:0; font-size:13px; }
 .popup .sub { margin-top:2px; font-size:9px; color:var(--muted); }
 .popup .best { margin-top:9px; padding-top:8px; border-top:1px solid var(--border); display:flex; justify-content:space-between; gap:10px; font-size:10px; }
-.popup .best strong { font-family:'IBM Plex Mono',monospace; }
+.popup .best strong { flex-shrink:0; font-family:'IBM Plex Mono',monospace; }
+.popup-quotes { margin-top:9px; padding-top:8px; border-top:1px solid var(--border); }
+.popup-quotes-title { margin-bottom:3px; font:600 8px 'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); }
+.popup-quotes-list { max-height:155px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--border2) transparent; }
+.popup-quote { padding:5px 0; border-bottom:1px solid var(--border); }
+.popup-quote:last-child { border-bottom:0; }
+.popup-quote-main { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.popup-quote-pass { min-width:0; display:flex; align-items:center; gap:6px; font-size:9px; color:var(--text2); }
+.popup-quote-pass span:last-child { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.popup-quote-dot { width:6px; height:6px; flex-shrink:0; border-radius:50%; }
+.popup-quote-price { flex-shrink:0; font:600 9px 'IBM Plex Mono',monospace; }
+.popup-quote-detail { margin-top:1px; padding-left:12px; font-size:8px; color:var(--muted); }
+.popup .source-pill { margin-top:8px; }
 
 footer {
   min-height:26px; flex-shrink:0; padding:5px 14px; background:#fff; border-top:1px solid var(--border);
@@ -326,11 +338,52 @@ function statusLabel(pt) {
   return pt.available ? 'Vrij' : 'Geen vrije poort';
 }
 
+function popupQuoteRows(pt, cmp) {
+  if (selectedPasses.size === 0) {
+    return '<div class="popup-quote"><div class="popup-quote-detail" style="padding-left:0">Selecteer minimaal één laadpas.</div></div>';
+  }
+
+  const rows = passes
+    .filter(pass => selectedPasses.has(pass.id))
+    .map(pass => {
+      const quote = pt.pricing?.[pass.id];
+      return { pass, quote, total: sessionCost(quote) };
+    })
+    .sort((a, b) => {
+      if (a.total == null && b.total == null) return 0;
+      if (a.total == null) return 1;
+      if (b.total == null) return -1;
+      return a.total - b.total;
+    });
+
+  return rows.map(({ pass, quote, total }) => {
+    if (total == null) {
+      return `<div class="popup-quote">
+        <div class="popup-quote-main">
+          <div class="popup-quote-pass"><span class="popup-quote-dot" style="background:${pass.color}"></span><span>${escapeHtml(pass.name)}</span></div>
+          <span class="popup-quote-price" style="color:var(--muted)">onbekend</span>
+        </div>
+      </div>`;
+    }
+
+    const isBest = cmp.comparable && cmp.best?.id === pass.id;
+    const detail = `${euro(quote.kwh, 3)}/kWh${quote.session ? ` + ${euro(quote.session)} start` : ''}`;
+    return `<div class="popup-quote">
+      <div class="popup-quote-main">
+        <div class="popup-quote-pass"><span class="popup-quote-dot" style="background:${pass.color}"></span><span>${escapeHtml(pass.name)}</span></div>
+        <span class="popup-quote-price" style="${isBest ? `color:${pass.color}` : ''}">${euro(total)}</span>
+      </div>
+      <div class="popup-quote-detail">${detail}</div>
+    </div>`;
+  }).join('');
+}
+
 function makePopup(pt) {
   const cmp = comparisonFor(pt);
+  const src = sourceInfo(pt);
   let bestHtml = '<span>Prijsvergelijking</span><strong>onvoldoende data</strong>';
   if (cmp.best && cmp.comparable) {
-    bestHtml = `<span>${passLabel(passById(cmp.best.id))} voor ${energyKwh} kWh</span><strong>${euro(cmp.best.total)}</strong>`;
+    bestHtml = `<span>Voordeligst: ${escapeHtml(passLabel(passById(cmp.best.id)))}</span><strong>${euro(cmp.best.total)}</strong>`;
   } else if (cmp.best) {
     bestHtml = `<span>Enige berekende pas voor ${energyKwh} kWh</span><strong>${euro(cmp.best.total)}</strong>`;
   }
@@ -339,6 +392,11 @@ function makePopup(pt) {
     <div class="sub">${escapeHtml(pt.operator)} · ${escapeHtml(pt.address)}</div>
     <div class="sub">Status bij laatste NDW-update: ${statusLabel(pt)}</div>
     <div class="best">${bestHtml}</div>
+    <div class="popup-quotes">
+      <div class="popup-quotes-title">Jouw passen voor ${energyKwh} kWh</div>
+      <div class="popup-quotes-list">${popupQuoteRows(pt, cmp)}</div>
+      <span class="source-pill ${src.cls}">${src.label}</span>
+    </div>
   </div>`;
 }
 
@@ -490,6 +548,14 @@ function applyFilters() {
   refreshMarkers();
 }
 
+function scrollActiveCardIntoView(block = 'nearest') {
+  if (!activeId) return;
+  requestAnimationFrame(() => {
+    const card = document.querySelector(`.card[data-id="${CSS.escape(activeId)}"]`);
+    if (card) card.scrollIntoView({ block, behavior:'smooth' });
+  });
+}
+
 function selectCard(id) {
   activeId = activeId === id ? null : id;
   applyFilters();
@@ -499,8 +565,14 @@ function selectCard(id) {
   map.setView([pt.lat, pt.lng], 16, { animate:true });
   const marker = markers.find(m => m._pid === activeId);
   if (marker) marker.openPopup();
-  const card = document.querySelector(`.card[data-id="${CSS.escape(activeId)}"]`);
-  if (card) card.scrollIntoView({ block:'nearest', behavior:'smooth' });
+  scrollActiveCardIntoView('nearest');
+}
+
+function selectCardFromMarker(id) {
+  if (activeId === id) return;
+  activeId = id;
+  renderList(visiblePoints());
+  scrollActiveCardIntoView('center');
 }
 
 function renderPassChips() {
@@ -624,8 +696,9 @@ async function init() {
     document.getElementById('footer-stats').textContent = `· ${data.stats?.ndw_priced ?? 0} direct geprijsd · ${data.stats?.unknown_base_rate ?? 0} CPO-tarieven onbekend`;
 
     markers = points.map(pt => {
-      const marker = L.marker([pt.lat, pt.lng], { icon:makeIcon(pt) }).bindPopup(makePopup(pt), { maxWidth:300 });
+      const marker = L.marker([pt.lat, pt.lng], { icon:makeIcon(pt) }).bindPopup(makePopup(pt), { maxWidth:320 });
       marker._pid = pt.id;
+      marker.on('click', () => selectCardFromMarker(pt.id));
       marker.addTo(map);
       return marker;
     });
