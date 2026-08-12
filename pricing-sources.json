@@ -20,11 +20,15 @@
       "checks": [
         {
           "label": "gratis plan zonder abonnement bestaat",
-          "patterns": ["gratis\\s+laadpas\\s+zonder\\s+abonnement"]
+          "patterns": [
+            "gratis\\s+laadpas\\s+zonder\\s+abonnement"
+          ]
         },
         {
           "label": "starttarief is EUR 0,89 per sessie",
-          "patterns": ["starttarief.{0,80}(?:€\\s*)?0[,.]89"]
+          "patterns": [
+            "starttarief.{0,80}(?:€\\s*)?0[,.]89"
+          ]
         }
       ]
     },
@@ -36,11 +40,15 @@
       "checks": [
         {
           "label": "Light plan bestaat en heeft geen maandbedrag",
-          "patterns": ["light.{0,180}(?:€\\s*)?0[,.]00.{0,40}/maand"]
+          "patterns": [
+            "light.{0,180}(?:€\\s*)?0[,.]00.{0,40}/maand"
+          ]
         },
         {
           "label": "Light rekent 5 procent transactiekosten",
-          "patterns": ["light.{0,260}tarief\\s+van\\s+de\\s+laadpaal\\s*\\+?\\s*5\\s*%\\s+transactiekosten"]
+          "patterns": [
+            "light.{0,260}tarief\\s+van\\s+de\\s+laadpaal\\s*\\+?\\s*5\\s*%\\s+transactiekosten"
+          ]
         }
       ]
     },
@@ -52,11 +60,16 @@
       "checks": [
         {
           "label": "laadpas heeft geen abonnementskosten",
-          "patterns": ["geen\\s+abonnementskosten"]
+          "patterns": [
+            "geen\\s+abonnementskosten"
+          ]
         },
         {
           "label": "roaming starttarief is EUR 0,35",
-          "patterns": ["starttarief.{0,80}(?:€\\s*)?0[,.]35.{0,120}(?:niet\\s+van\\s+ons|andere\\s+aanbieder)"]
+          "patterns": [
+            "starttarief.{0,180}(?:€\\s*)?0[,.]35",
+            "(?:€\\s*)?0[,.]35.{0,180}(?:niet\\s+van\\s+ons|andere\\s+aanbieder)"
+          ]
         }
       ]
     },
@@ -68,11 +81,15 @@
       "checks": [
         {
           "label": "Flex starttarief is EUR 0,31 per sessie",
-          "patterns": ["flex.{0,260}(?:€\\s*)?0[,.]31\\s+per\\s+laadsessie"]
+          "patterns": [
+            "flex.{0,260}(?:€\\s*)?0[,.]31\\s+per\\s+laadsessie"
+          ]
         },
         {
           "label": "Flex roamingopslag is EUR 0,024 per kWh",
-          "patterns": ["flex.{0,360}(?:€\\s*)?0[,.]024\\s*/?\\s*kwh"]
+          "patterns": [
+            "flex.{0,360}(?:€\\s*)?0[,.]024\\s*/?\\s*kwh"
+          ]
         }
       ]
     },
@@ -84,19 +101,29 @@
       "checks": [
         {
           "label": "Basic heeft geen maandelijkse kosten",
-          "patterns": ["shell\\s+recharge\\s+basic.{0,120}geen\\s+maandelijkse\\s+kosten"]
+          "patterns": [
+            "shell\\s+recharge\\s+basic.{0,500}geen\\s+maandelijkse\\s+kosten",
+            "geen\\s+maandelijkse\\s+kosten.{0,500}shell\\s+recharge\\s+basic"
+          ]
         },
         {
           "label": "AC roamingband blijft EUR 0,50 / 0,55 / 0,60",
-          "patterns": ["ac:.{0,80}0[,.]50.{0,80}0[,.]55.{0,80}0[,.]60"]
+          "patterns": [
+            "ac\\s*:?.{0,220}0[,.]50.{0,220}0[,.]55.{0,220}0[,.]60"
+          ]
         },
         {
           "label": "DC roamingband blijft EUR 0,79 / 0,82 / 0,85",
-          "patterns": ["dc:.{0,80}0[,.]79.{0,80}0[,.]82.{0,80}0[,.]85"]
+          "patterns": [
+            "dc\\s*:?.{0,220}0[,.]79.{0,220}0[,.]82.{0,220}0[,.]85"
+          ]
         },
         {
           "label": "transactiekosten blijven EUR 0,35 per sessie",
-          "patterns": ["(?:€\\s*)?0[,.]35\\s+transactiekosten\\s+per\\s+laadsessie"]
+          "patterns": [
+            "(?:€\\s*)?0[,.]35.{0,120}transactiekosten.{0,120}(?:laadsessie|sessie)",
+            "transactiekosten.{0,120}(?:€\\s*)?0[,.]35"
+          ]
         }
       ]
     },
@@ -108,7 +135,10 @@
       "checks": [
         {
           "label": "starttarief blijft EUR 0,47 per sessie",
-          "patterns": ["(?:€\\s*)?0[,.]47\\s+per\\s+laadsessie"]
+          "patterns": [
+            "(?:starttarief|tarief).{0,160}(?:€\\s*)?0[,.]47",
+            "(?:€\\s*)?0[,.]47.{0,160}per\\s+laadsessie"
+          ]
         }
       ]
     },
@@ -120,19 +150,27 @@
       "checks": [
         {
           "label": "MRA-E 2 t/m 5 blijft EUR 0,48 incl. btw",
-          "patterns": ["mra-e\\s+2\\s*(?:t/m|t\\s+m)\\s*5.{0,160}(?:€\\s*)?0[,.]48"]
+          "patterns": [
+            "mra-e\\s+2\\s*(?:t/m|t\\s+m)\\s*5.{0,160}(?:€\\s*)?0[,.]48"
+          ]
         },
         {
           "label": "MRA-E 6 blijft EUR 0,36 incl. btw",
-          "patterns": ["mra-e\\s+6.{0,120}(?:€\\s*)?0[,.]36"]
+          "patterns": [
+            "mra-e\\s+6.{0,120}(?:€\\s*)?0[,.]36"
+          ]
         },
         {
           "label": "MRA-E 6 dynamisch bevat EUR 0,34 en 0,36",
-          "patterns": ["mra-e\\s+6.{0,80}dynamische.{0,300}0[,.]34.{0,160}0[,.]36"]
+          "patterns": [
+            "mra-e\\s+6.{0,80}dynamische.{0,300}0[,.]34.{0,160}0[,.]36"
+          ]
         },
         {
           "label": "MRA-E DC blijft EUR 0,54 incl. btw",
-          "patterns": ["flevoland.{0,80}noord-holland.{0,80}utrecht.{0,80}mra-e.{0,120}(?:€\\s*)?0[,.]54"]
+          "patterns": [
+            "flevoland.{0,80}noord-holland.{0,80}utrecht.{0,80}mra-e.{0,120}(?:€\\s*)?0[,.]54"
+          ]
         }
       ]
     }

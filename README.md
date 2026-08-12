@@ -130,9 +130,9 @@ python3 -m unittest discover -s tests
 
 De workflow in `.github/workflows/update.yml` haalt dagelijks de NDW-data op, voert de tests uit en genereert een nieuwe `huizen-data.json`. Als de dataset is gewijzigd, wordt deze automatisch teruggeschreven naar de repository.
 
-Daarnaast controleert `.github/workflows/pricing-monitor.yml` maandelijks de officiële tariefpagina's die in `pricing-sources.json` zijn vastgelegd. Als een verwachte prijsvoorwaarde niet meer op de bronpagina terug te vinden is, opent of actualiseert de workflow een GitHub Issue voor handmatige controle. De monitor past tarieven nooit automatisch in de code aan.
+Daarnaast controleert `.github/workflows/pricing-monitor.yml` maandelijks de officiële tariefpagina's die in `pricing-sources.json` zijn vastgelegd. Als een verwachte prijsvoorwaarde niet meer op de bronpagina terug te vinden is, markeert de workflow de run als aandachtspunt en zet het volledige rapport in de Job Summary. Als GitHub Issues voor de repository is ingeschakeld, opent of actualiseert de workflow daarnaast automatisch een Issue voor handmatige controle. De monitor past tarieven nooit automatisch in de code aan.
 
-De tariefcontrole kan ook handmatig worden gestart via `workflow_dispatch`. Voor GitHub Actions zijn geen API-secrets nodig. De dagelijkse dataworkflow heeft schrijfrechten op de repository nodig, de tariefmonitor alleen leesrechten op de code en schrijfrechten voor Issues.
+De tariefcontrole kan ook handmatig worden gestart via `workflow_dispatch`. Voor GitHub Actions zijn geen API-secrets nodig. De dagelijkse dataworkflow heeft schrijfrechten op de repository nodig. De tariefmonitor leest de code en gebruikt alleen Issue-schrijfrechten wanneer GitHub Issues voor de repository is ingeschakeld.
 
 ## Projectstructuur
 

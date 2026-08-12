@@ -81,7 +81,7 @@
 
   <h2>6. Automatische update en tariefbewaking</h2>
   <p>De GitHub Action in <code>.github/workflows/update.yml</code> draait dagelijks om <strong>06:37 UTC</strong>, voert eerst de lokale tests uit, bouwt daarna <code>huizen-data.json</code> opnieuw uit NDW-data en commit alleen wanneer de dataset is gewijzigd.</p>
-  <p>Los daarvan draait <code>.github/workflows/pricing-monitor.yml</code> maandelijks. Deze workflow controleert de officiële tariefpagina's tegen de voorwaarden in <code>pricing-sources.json</code>. Als een bron niet meer bereikbaar is of een verwachte tariefvoorwaarde ontbreekt, opent of actualiseert GitHub automatisch een Issue voor handmatige beoordeling. De monitor wijzigt nooit zelfstandig een tarief in <code>process.py</code>; een inhoudelijke prijswijziging blijft altijd een bewuste codewijziging.</p>
+  <p>Los daarvan draait <code>.github/workflows/pricing-monitor.yml</code> maandelijks. Deze workflow controleert de officiële tariefpagina's tegen de voorwaarden in <code>pricing-sources.json</code>. Als een bron niet meer bereikbaar is of een verwachte tariefvoorwaarde ontbreekt, verschijnt het volledige rapport in de Job Summary en wordt de run als aandachtspunt gemarkeerd. Als GitHub Issues voor de repository is ingeschakeld, opent of actualiseert GitHub daarnaast automatisch een Issue voor handmatige beoordeling. De monitor wijzigt nooit zelfstandig een tarief in <code>process.py</code>; een inhoudelijke prijswijziging blijft altijd een bewuste codewijziging.</p>
   <p>De site zelf wordt gepubliceerd via <strong>GitHub Pages</strong> op <a href="https://rubenwoudsma.github.io/laadpalenhuizen/" rel="noopener">rubenwoudsma.github.io/laadpalenhuizen/</a>.</p>
 
   <h2>7. Bekende beperkingen</h2>
