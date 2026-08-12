@@ -1,188 +1,87 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="nl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Methodologie · Laadpalen Huizen</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<style>
-:root {
-  --bg: #f0f2f5;
-  --surface: #ffffff;
-  --border: #e4e7ed;
-  --text: #111827;
-  --text2: #374151;
-  --muted: #9ca3af;
-  --green: #16a34a;
-  --amber: #d97706;
-  --amber-bg: #fef3c7;
-}
-* { margin:0; padding:0; box-sizing:border-box; }
-body {
-  font-family: 'IBM Plex Sans', sans-serif;
-  background: var(--bg); color: var(--text);
-  min-height: 100vh; display: flex; flex-direction: column;
-}
-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 20px; height: 52px;
-  background: var(--surface); border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-header a { text-decoration: none; color: inherit; }
-.wordmark { display:flex; align-items:center; gap:11px; }
-.wordmark-icon {
-  width:32px; height:32px; background:var(--text); border-radius:8px;
-  display:flex; align-items:center; justify-content:center; font-size:15px;
-}
-.wordmark-text h1 {
-  font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700;
-  letter-spacing:-.2px; color:var(--text);
-}
-.wordmark-text span { font-size:10px; color:var(--muted); display:block; margin-top:1px; }
-.back-link {
-  font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted);
-  text-decoration:none;
-}
-.back-link:hover { color:var(--text2); }
-main {
-  flex:1; max-width:720px; width:100%; margin:0 auto;
-  padding:32px 20px 48px;
-}
-h2 {
-  font-family:'IBM Plex Mono',monospace; font-size:18px; font-weight:700;
-  margin-bottom:8px; margin-top:32px;
-}
-h2:first-child { margin-top:0; }
-h3 {
-  font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600;
-  margin-bottom:4px; margin-top:20px;
-}
-p { font-size:14px; line-height:1.7; color:var(--text2); margin-bottom:12px; }
-ul, ol { font-size:14px; line-height:1.7; color:var(--text2); margin:0 0 12px 20px; }
-li { margin-bottom:4px; }
-code {
-  font-family:'IBM Plex Mono',monospace; font-size:12px;
-  background:var(--surface); border:1px solid var(--border);
-  padding:1px 5px; border-radius:4px;
-}
-table {
-  width:100%; border-collapse:collapse; margin:12px 0 16px;
-  font-size:13px;
-}
-th, td {
-  padding:6px 10px; text-align:left; border-bottom:1px solid var(--border);
-}
-th {
-  font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600;
-  text-transform:uppercase; letter-spacing:.5px; color:var(--muted);
-  background:var(--surface);
-}
-td { color:var(--text2); }
-.note {
-  background:var(--amber-bg); border:1px solid #fcd34d; border-radius:6px;
-  padding:10px 14px; font-size:12px; color:#92400e; margin:16px 0;
-  font-family:'IBM Plex Mono',monospace;
-}
-footer {
-  padding:5px 16px; background:var(--surface); border-top:1px solid var(--border);
-  display:flex; justify-content:center; align-items:center;
-  font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted); flex-shrink:0;
-}
-footer a { color:var(--muted); }
-@media (max-width: 767px) {
-  header { padding:0 12px; height:44px; }
-  main { padding:20px 14px 32px; }
-}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Methodologie | Laadpalen Huizen</title>
+  <meta name="description" content="Hoe Laadpalen Huizen locaties, laadstatus en geschatte sessiekosten per laadpas berekent.">
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172033;background:#f4f6f8;line-height:1.6}
+    *{box-sizing:border-box} body{margin:0} a{color:#155eef} a:hover{text-decoration-thickness:2px}
+    header{background:#fff;border-bottom:1px solid #e5e7eb}
+    .bar{max-width:980px;margin:auto;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{font-weight:800;color:#172033;text-decoration:none}.back{font-weight:600;text-decoration:none}
+    main{max-width:900px;margin:34px auto;padding:0 22px 64px}
+    h1{font-size:clamp(2rem,5vw,3rem);line-height:1.1;margin:.2em 0 .35em} h2{margin-top:2.1em;line-height:1.25} h3{margin-top:1.6em}
+    .lead{font-size:1.1rem;color:#465166;max-width:760px}.card{background:#fff;border:1px solid #e2e7ee;border-radius:16px;padding:20px 22px;margin:20px 0;box-shadow:0 6px 22px rgba(23,32,51,.04)}
+    table{width:100%;border-collapse:collapse;font-size:.95rem}th,td{text-align:left;vertical-align:top;border-bottom:1px solid #e8ebef;padding:11px 8px}th{color:#344054}code{background:#eef2f6;border-radius:5px;padding:2px 5px}
+    .formula{font-size:1.02rem;font-weight:700;background:#f7f9fc;border-left:4px solid #155eef;padding:14px 16px;border-radius:8px}
+    .muted{color:#667085}.tag{display:inline-block;background:#eef4ff;color:#1849a9;border-radius:999px;padding:2px 9px;font-size:.82rem;font-weight:700}
+    ul{padding-left:21px}li{margin:.45rem 0}.footer-note{margin-top:44px;padding-top:20px;border-top:1px solid #dfe4ea;color:#667085;font-size:.92rem}
+    @media(max-width:650px){.bar{padding:15px 16px}main{padding:0 16px 45px;margin-top:24px}.card{padding:16px;overflow-x:auto}table{min-width:650px}}
+  </style>
 </head>
 <body>
-
-<header>
-  <a href="/">
-    <div class="wordmark">
-      <div class="wordmark-icon">⚡</div>
-      <div class="wordmark-text">
-        <h1>Laadpalen Huizen</h1>
-        <span>Huizen · Noord-Holland</span>
-      </div>
-    </div>
-  </a>
-  <a href="index.html" class="back-link">&larr; Terug naar kaart</a>
-</header>
-
+<header><div class="bar"><a class="brand" href="index.html">Laadpalen Huizen</a><a class="back" href="index.html">Terug naar de kaart</a></div></header>
 <main>
-  <h2>Methodologie</h2>
-  <p>Deze pagina beschrijft hoe de data op Laadpalen Huizen wordt verzameld, verwerkt en weergegeven. Alle code is open source en beschikbaar op <a href="https://github.com/rubenwoudsma/laadpalenhuizen">GitHub</a>.</p>
+  <p class="tag">Methodologie v2</p>
+  <h1>Wat vergelijkt deze kaart precies?</h1>
+  <p class="lead">Laadpalen Huizen combineert openbare NDW-data met openbare tariefvoorwaarden van laadpasaanbieders. De kaart probeert niet één universele prijs per laadpunt te verzinnen, maar berekent waar mogelijk de geschatte kosten van een laadsessie met de passen die jij selecteert.</p>
 
-  <h2>Databronnen</h2>
+  <h2>1. Locaties en laadstatus</h2>
+  <div class="card">
+    <p>De bron voor openbare laadlocaties is <a href="https://opendata.ndw.nu/" rel="noopener">NDW Open Data</a>. De dagelijkse preprocessor downloadt OCPI-locaties en tarieven voor Nederland, doet eerst een snelle selectie binnen <code>52.260–52.325 N</code> en <code>5.175–5.305 E</code>, en filtert daarna nauwkeuriger op de gemeentegrens in <code>huizen-boundary.geojson</code>.</p>
+    <p>De status op de kaart is een <strong>snapshot uit de laatste NDW-update</strong>. De website draait volledig statisch op GitHub Pages en doet daarom geen verborgen server-side live-opvraag. Een groene status betekent dat NDW bij de laatste update minimaal één connector als beschikbaar rapporteerde, niet dat die connector op dit exacte moment nog vrij is.</p>
+  </div>
 
-  <h3>NDW (Nationaal Dataportaal Wegverkeer)</h3>
-  <p>De primaire databron is NDW open data (<a href="https://opendata.ndw.nu">opendata.ndw.nu</a>). Elke dag om 06:00 UTC worden twee bestanden opgehaald:</p>
+  <h2>2. Waarom sessiekosten in plaats van alleen €/kWh?</h2>
+  <p>Een laadpas kan naast het energietarief ook een bedrag per sessie of een opslag per kWh rekenen. Alleen het laagste getal in €/kWh vergelijken kan daardoor een verkeerde winnaar opleveren.</p>
+  <p class="formula">Geschatte sessiekosten = gekozen kWh × prijs via laadpas + sessiekosten</p>
+  <p>De kaart laat standaard 20 kWh zien. Je kunt 5, 10, 20 of 30 kWh kiezen. Passen met een maandabonnement zijn bewust niet in de hoofdvergelijking opgenomen, omdat de kosten per sessie pas eerlijk kunnen worden toegerekend als ook bekend is hoeveel keer iemand per maand publiek laadt.</p>
+
+  <h2>3. Laadpassen in de kernvergelijking</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Laadpas</th><th>Plan</th><th>Model in de kaart</th><th>Bron</th></tr></thead>
+      <tbody>
+        <tr><td>ANWB</td><td>Zonder abonnement</td><td>CPO-basistarief + €0,89 per sessie. Netwerkkortingen worden alleen als melding getoond wanneer geen betrouwbare connectorprijs beschikbaar is.</td><td><a href="https://www.anwb.nl/auto/elektrisch-rijden/laadpas-abonnement" rel="noopener">ANWB</a></td></tr>
+        <tr><td>Vattenfall InCharge</td><td>Gratis laadpas</td><td>Eigen InCharge-netwerk zonder sessietoeslag. Buiten het eigen netwerk wordt €0,35 per sessie toegevoegd. Het roaming-kWh-tarief kan in de InCharge-app afwijken, daarom krijgt die schatting lagere betrouwbaarheid.</td><td><a href="https://incharge.vattenfall.nl/onze-tarieven" rel="noopener">Vattenfall</a></td></tr>
+        <tr><td>E-Flux by Road</td><td>Flex</td><td>€0,31 per sessie en buiten E-Flux €0,024/kWh opslag. Mogelijke extra clearingkosten kunnen niet uit de NDW-locatie worden afgeleid en worden daarom als waarschuwing genoemd.</td><td><a href="https://www.e-flux.io/nl/tarieven-laadpassen" rel="noopener">E-Flux</a></td></tr>
+        <tr><td>Shell Recharge</td><td>Basic</td><td>Shell publiceert prijsbanden. De kaart gebruikt het midden van de betreffende AC- of DC-band als expliciete schatting, plus €0,35 per sessie. De exacte paalprijs hoort daarom altijd in de Shell-app gecontroleerd te worden.</td><td><a href="https://www.shell.nl/elektrisch-opladen/Tarieven.html" rel="noopener">Shell</a></td></tr>
+        <tr><td>Laadkompas</td><td>Zonder abonnement</td><td>CPO-basistarief + €0,47 per sessie.</td><td><a href="https://laadkompas.nl/laadpas/" rel="noopener">Laadkompas</a></td></tr>
+      </tbody>
+    </table>
+    <p class="muted">De voorwaarden hierboven zijn in deze versie gecontroleerd op 12 augustus 2026. De datum staat ook per laadpas in <code>huizen-data.json</code>, zodat verouderde regels later gericht kunnen worden bijgewerkt.</p>
+  </div>
+
+  <h2>4. Waar komt het onderliggende CPO-tarief vandaan?</h2>
+  <p>Voor een betrouwbare vergelijking moet eerst duidelijk zijn welk energietarief bij de laadlocatie hoort. De preprocessor gebruikt drie niveaus:</p>
   <ul>
-    <li><strong>Locaties</strong> &mdash; alle publieke laadpunten in Nederland met adres, operator, connectoren en vermogen.</li>
-    <li><strong>Tarieven</strong> &mdash; OCPI 2.2.1 tariefobjecten met energieprijzen per kWh, gekoppeld aan individuele connectoren.</li>
+    <li><strong>NDW-tarief</strong>, een tarief dat rechtstreeks via het OCPI-tarief-ID van een connector is gevonden. Dit krijgt de hoogste betrouwbaarheid.</li>
+    <li><strong>Operator-mediaan</strong>, alleen wanneer een locatie geen direct tarief heeft en er minimaal vijf bruikbare landelijke tariefwaarnemingen van dezelfde operator beschikbaar zijn. Regionaal sterk variërende Vattenfall/Nuon-tarieven worden hiervan uitgesloten.</li>
+    <li><strong>Onbekend</strong>, wanneer er geen verantwoord basistarief kan worden afgeleid. Er wordt dan geen generieke fallbackprijs meer verzonnen.</li>
   </ul>
-  <p>De data wordt gefilterd op een bounding box rond de gemeente Huizen (lat 51.770&ndash;51.850, lng 5.670&ndash;5.810) die alle kernen van de gemeente omvat.</p>
+  <p>Dit laatste is een bewuste wijziging ten opzichte van versie 1. Een hardcoded fallback kon een laadpas automatisch als “goedkoopste” laten winnen, terwijl er voor die specifieke locatie helemaal geen actuele prijs bekend was.</p>
 
-  <h3>Open Charge Map (OCM)</h3>
-  <p>Voor live beschikbaarheid wordt de Open Charge Map API elke 5 minuten client-side bevraagd. Laadpunten die in OCM voorkomen maar niet in NDW worden apart getoond als "Niet in NDW". Deze punten hebben geen tariefdata.</p>
+  <h2>5. Betrouwbaarheid in de kaart</h2>
+  <div class="card">
+    <p><strong>Hoog</strong> betekent dat de berekening grotendeels op een direct NDW-tarief en een eenvoudig openbaar pasmodel steunt. <strong>Middel</strong> duidt bijvoorbeeld op een operator-mediaan of een aangekondigde netwerkkorting zonder connector-specifieke prijs. <strong>Laag</strong> wordt gebruikt bij prijsbanden of roamingconstructies waarbij de app van de laadpasaanbieder de preciezere eindprijs kan tonen.</p>
+    <p>Een laadpunt krijgt alleen de aanduiding “Voordeligst met jouw passen” wanneer voor minimaal twee van jouw geselecteerde passen een berekening beschikbaar is. Eén los bekend tarief wordt niet als winnaar gepresenteerd.</p>
+  </div>
 
-  <h2>Tariefberekening</h2>
-  <p>Per laadpunt worden de kosten voor 5 laadpassen berekend. De berekening hangt af van de beschikbaarheid van NDW-tariefdata.</p>
+  <h2>6. Automatische update en hosting</h2>
+  <p>De GitHub Action in <code>.github/workflows/update.yml</code> draait dagelijks om <strong>06:37 UTC</strong>, voert eerst de lokale tests uit, bouwt daarna <code>huizen-data.json</code> opnieuw uit NDW-data en commit alleen wanneer de dataset is gewijzigd. De site zelf wordt gepubliceerd via <strong>GitHub Pages</strong> op <a href="https://rubenwoudsma.github.io/laadpalenhuizen/" rel="noopener">rubenwoudsma.github.io/laadpalenhuizen/</a>.</p>
 
-  <h3>Als NDW-tarief beschikbaar is</h3>
-  <p>Het CPO-tarief (energieprijs in &euro;/kWh) wordt uit het OCPI-tariefobject gehaald. Prijzen exclusief BTW worden met 21% verhoogd. Vervolgens:</p>
-  <table>
-    <tr><th>Pas</th><th>Berekening</th></tr>
-    <tr><td>Vattenfall</td><td>CPO-tarief (1:1 doorgifte)</td></tr>
-    <tr><td>Laadkompas</td><td>CPO-tarief (1:1, abonnement &euro;4,78/mnd)</td></tr>
-    <tr><td>Allego</td><td>Max. &euro;0,62/kWh op eigen palen (range &euro;0,41&ndash;&euro;0,62), CPO-tarief op overige (<a href="https://www.allego.eu/nl/prijzen/">bron</a>)</td></tr>
-    <tr><td>Shell Recharge</td><td>&euro;0,55/kWh vast tarief (niet-Shell palen) of CPO-tarief &times; 0,95 (eigen palen)</td></tr>
-    <tr><td>Chargemap</td><td>CPO-tarief &times; 1,12 (12% opslag)</td></tr>
-  </table>
-
-  <h3>Als NDW-tarief ontbreekt</h3>
-  <p>Wanneer er geen tariefdata beschikbaar is vanuit NDW (dit komt regelmatig voor), worden twee fallback-methoden gebruikt:</p>
-  <ol>
-    <li><strong>Landelijke mediaan</strong> &mdash; de mediaan van alle NDW-tarieven voor dezelfde operator in heel Nederland. Dit geeft een goede indicatie voor operators met een landelijk uniform tarief.</li>
-    <li><strong>Vaste schatting</strong> &mdash; een handmatig onderhouden tabel met tarieven per operator en per pas, gebaseerd op publiek bekende prijzen. Voor Vattenfall InCharge wordt het gepubliceerde tarief voor Noord-Holland &amp; Overijssel gebruikt (<a href="https://incharge.vattenfall.nl/onze-tarieven#publiektarief">bron</a>).</li>
-  </ol>
-
-  <div class="note">Tarieven zijn altijd indicatief. Check altijd de app van je laadpas voor het actuele tarief voordat je gaat laden.</div>
-
-  <h3>Bronvermelding in de interface</h3>
-  <p>Bij elk laadpunt wordt de bron van het tarief getoond:</p>
+  <h2>7. Bekende beperkingen</h2>
   <ul>
-    <li><strong>NDW tarief</strong> &mdash; direct uit NDW-tariefdata, meest betrouwbaar.</li>
-    <li><strong>Schatting (mediaan)</strong> &mdash; gebaseerd op de landelijke mediaan voor de betreffende operator.</li>
-    <li><strong>Schatting (vaste tabel)</strong> &mdash; uit de handmatige fallback-tabel.</li>
-  </ul>
-
-  <h2>Beschikbaarheid</h2>
-  <p>De live beschikbaarheidsstatus komt van Open Charge Map. Elk NDW-laadpunt wordt op basis van co&ouml;rdinaten gematcht met het dichtstbijzijnde OCM-resultaat (maximaal 15 meter afstand). Als er een match is, wordt de OCM-status overgenomen. Zonder match wordt de statische NDW-status getoond.</p>
-
-  <h2>Data-update</h2>
-  <p>Een GitHub Actions workflow draait dagelijks om 06:00 UTC. Het script downloadt de nieuwste NDW-data, verwerkt deze en commit het resultaat (<code>huizen-data.json</code>) als er wijzigingen zijn. Cloudflare Pages deployt automatisch bij elke push naar <code>main</code>.</p>
-
-  <h2>Beperkingen</h2>
-  <ul>
-    <li>Niet alle laadpunten in NDW hebben tariefdata; voor sommige operators is de dekking beperkt.</li>
-    <li>Starttarieven, tijdtarieven en blokkeerkosten worden niet meegenomen in de berekening.</li>
-    <li>Het maandelijkse abonnement van Laadkompas (&euro;4,78) wordt niet verdisconteerd in de per-kWh prijs.</li>
-    <li>Beschikbaarheidsstatus van OCM kan vertraagd zijn of ontbreken voor sommige palen.</li>
-    <li>Laadpunten die alleen via OCM bekend zijn hebben geen tariefinformatie.</li>
+    <li>De prijs die je werkelijk betaalt, wordt uiteindelijk bepaald door de laadpasaanbieder en kan per connector, roamingroute, tijdstip of aanvullende fee afwijken.</li>
+    <li>ANWB noemt speciale tarieven op onder andere TotalEnergies en Ubitricity, maar zonder één openbaar universeel connectorbedrag rekent de kaart die korting niet automatisch in.</li>
+    <li>Parkeer-, tijd-, idle- en blokkeerkosten zijn nog niet volledig gemodelleerd.</li>
+    <li>Beschikbaarheid is de dagelijkse NDW-snapshot, niet realtime.</li>
+    <li>De kaart is gericht op Huizen en is geen vervanging voor de app of factuur van de laadpasaanbieder.</li>
   </ul>
 
-  <h2>Open source</h2>
-  <p>De volledige broncode is beschikbaar op <a href="https://github.com/rubenwoudsma/laadpalenhuizen">github.com/rubenwoudsma/laadpalenhuizen</a>. Het dataverwerkingsscript (<code>process.py</code>) heeft geen externe dependencies &mdash; alleen Python 3.12 standaardbibliotheek.</p>
+  <p class="footer-note">Zie je een tarief dat niet meer klopt? De bron-URL en verificatiedatum staan in de dataset en in <code>process.py</code>. Daardoor is de regel traceerbaar en eenvoudig bij te werken zonder een verborgen fallbacktabel te onderhouden.</p>
 </main>
-
-<footer>
-  <span><a href="/">Laadpalen Huizen</a> · open source op <a href="https://github.com/rubenwoudsma/laadpalenhuizen">GitHub</a></span>
-</footer>
-
 </body>
 </html>
