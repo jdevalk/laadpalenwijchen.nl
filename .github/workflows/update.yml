@@ -26,6 +26,9 @@ jobs:
         with:
           python-version: "3.x"
 
+      - name: Run pricing tests
+        run: python3 -m unittest discover -s tests
+
       - name: Run preprocessor
         run: python3 process.py
 

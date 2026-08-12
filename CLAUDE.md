@@ -1,39 +1,54 @@
-# CLAUDE.md
+# Repository notes: laadpalenhuizen
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Purpose
 
-## Project Overview
+Static GitHub Pages site for public EV charge points in the municipality of Huizen, Netherlands. The main user problem is comparing expected session cost across the charge cards a visitor actually carries.
 
-Laadpalen Wijchen — a static site comparing 5 EV charging passes across all public charging points in Wijchen, NL. Deployed on Cloudflare Pages at laadpalenwijchen.nl.
+Live site: https://rubenwoudsma.github.io/laadpalenhuizen/
 
 ## Architecture
 
-**Data pipeline:** `process.py` (Python 3.12, stdlib only) downloads two gzipped NDW open data files (locations + tariffs), filters to a bounding box around Wijchen, joins tariff data onto connectors, computes per-pass pricing, and writes `wijchen-data.json`.
+- `index.html`: dependency-light static frontend using Leaflet from CDN. Reads `huizen-data.json`, lets users select charge cards and an energy amount, stores those preferences in `localStorage`, and computes session totals in the browser.
+- `process.py`: Python standard-library preprocessor. Downloads NDW OCPI locations/tariffs, filters to Huizen, derives CPO base tariffs and builds per-pass price components.
+- `huizen-data.json`: generated static data consumed by the page.
+- `huizen-boundary.geojson`: municipality boundary used after bbox prefiltering.
+- `methodologie.html`: public explanation of pricing assumptions, confidence and limitations.
+- `.github/workflows/update.yml`: daily refresh at 06:37 UTC.
+- `tests/test_pricing.py`: pricing-rule regression tests.
 
-**Frontend:** Single `index.html` with inline CSS/JS. Uses Leaflet for the map, fetches `wijchen-data.json` at load. Live availability is overlaid client-side from Open Charge Map API (polled every 5 min). No build step, no bundler, no framework.
+There is intentionally no Cloudflare Pages Function and no `/api/ocm` endpoint. GitHub Pages is static. Availability shown by the frontend is the status snapshot contained in the last generated NDW dataset.
 
-**Deployment:** GitHub Actions runs `process.py` daily at 06:00 UTC, commits `wijchen-data.json` if changed. Cloudflare Pages auto-deploys on push to `main`.
+## Pricing principles
 
-## Commands
+1. Prefer a direct NDW/OCPI connector tariff.
+2. If direct pricing is absent, an operator median can be used only with at least five samples and only for operators where a nationwide median is not obviously misleading.
+3. Never invent a generic CPO fallback. Unknown is better than false precision.
+4. Model card-specific kWh price/markup and per-session fee separately.
+5. Do not declare a winner unless at least two selected passes have a calculable estimate.
+6. Monthly-subscription plans are outside the core comparison until the UX includes a user-specific monthly charging frequency.
+7. If a provider advertises a discount but does not expose a single safe connector-specific rate, show a note instead of inventing a discount.
+
+## Current core passes
+
+Conditions last verified in code on 2026-08-12:
+
+- ANWB, no subscription
+- Vattenfall InCharge, free charge card
+- E-Flux by Road, Flex
+- Shell Recharge, Basic
+- Laadkompas, no subscription
+
+Each pass object in `process.py` has a `source_url` and `verified_at`. Update both when changing a commercial pricing rule.
+
+## Development checks
+
+Before committing pricing or frontend changes:
 
 ```bash
-# Generate data locally (downloads ~50MB from NDW, no API key needed)
-python3 process.py
-
-# Local dev server
-python3 -m http.server 8080
+python3 -m py_compile process.py
+python3 -m unittest discover -s tests
+node --check /tmp/laadpalenhuizen-index.js   # after extracting the inline script if Node is available
+python3 -m http.server 8000
 ```
 
-## Key Design Decisions
-
-- **No dependencies** — `process.py` uses only Python stdlib (urllib, gzip, json)
-- **Pricing model** — When NDW tariff data exists, per-pass prices are derived from CPO rate with pass-specific rules (Shell fixed rate, Chargemap markup, etc.). Otherwise falls back to `CPO_FALLBACK` table keyed by operator name
-- **Bounding box** — Wijchen + ~5km buffer: lat 51.770–51.850, lng 5.670–5.810
-- **All content is Dutch** — UI labels, comments in process.py, commit messages from Actions
-
-## Files
-
-- `process.py` — NDW data pipeline; all pricing logic lives here (PASSES, CPO_FALLBACK, build_pricing)
-- `index.html` — Complete frontend: map, sidebar, cards, popups, OCM live status
-- `wijchen-data.json` — Generated output, committed to repo, served statically
-- `.github/workflows/update.yml` — Daily cron job
+Keep the project free of Python runtime dependencies unless there is a strong reason to add one. Avoid reintroducing hardcoded per-operator fallback price tables.

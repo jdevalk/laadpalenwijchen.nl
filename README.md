@@ -1,191 +1,140 @@
 # Laadpalen Huizen
 
-Een interactieve kaart met publieke laadpunten in de gemeente Huizen.
+Een interactieve webkaart met openbare laadpunten in de gemeente Huizen. De kaart helpt EV-rijders om laadlocaties te vinden en om voor een gewenste laadsessie te vergelijken welke van hun laadpassen naar verwachting het voordeligst is.
 
-De site vergelijkt indicatief meerdere laadpassen op basis van openbare NDW-data en toont per laadpunt onder andere locatie, operator, beschikbaarheid, vermogen en geschatte laadkosten.
+**Live website:** https://rubenwoudsma.github.io/laadpalenhuizen/
 
-**Live data van NDW** [Nationaal Dataportaal Wegverkeer], dagelijks bijgewerkt via GitHub Actions.
+## Wat kun je met de kaart?
 
-## Live website
+Op de kaart kun je:
 
-De website draait via GitHub Pages:
+- openbare laadlocaties in Huizen bekijken;
+- zoeken op adres of locatie;
+- informatie bekijken over operator, connectoren, laadvermogen en beschikbaarheid;
+- aangeven welke laadpassen je zelf gebruikt;
+- kiezen hoeveel kWh je ongeveer wilt laden;
+- de geschatte sessiekosten van je geselecteerde laadpassen vergelijken;
+- zien waarop een prijsberekening is gebaseerd en hoe betrouwbaar de beschikbare tariefinformatie is.
+
+Je geselecteerde laadpassen worden alleen lokaal in je browser opgeslagen. Er is geen account nodig.
+
+## Laadpassen
+
+De vergelijking ondersteunt momenteel de volgende laadpassen en plannen zonder maandabonnement:
+
+- ANWB, Zonder abonnement
+- Vattenfall InCharge
+- E-Flux by Road, Flex
+- Shell Recharge Basic
+- Laadkompas, Zonder abonnement
+
+De kaart vergelijkt niet alleen een prijs per kWh. Waar relevant worden ook sessiekosten, kWh-opslagen en verschillen tussen het eigen netwerk en roaming meegenomen.
+
+De uiteindelijke kosten bij een laadpaal kunnen afwijken. Controleer bij twijfel altijd het actuele tarief in de app of omgeving van je laadpasaanbieder.
+
+## Hoe wordt de prijs bepaald?
+
+De basis voor de kaart is openbare laadpaaldata van het Nationaal Dataportaal Wegverkeer [NDW]. De dataset wordt dagelijks bijgewerkt via GitHub Actions.
+
+Voor een laadlocatie probeert de preprocessor eerst een rechtstreeks gepubliceerd NDW/OCPI-tarief te gebruiken. Als dat niet beschikbaar is, kan voor geschikte operators een mediaan van voldoende landelijke tariefwaarnemingen worden gebruikt. Wanneer er onvoldoende betrouwbare prijsinformatie is, blijft het basistarief onbekend.
+
+Er wordt bewust geen generieke fallbackprijs ingevuld om toch een winnaar te kunnen tonen. Een laadpas wordt alleen als voordeligste optie weergegeven wanneer er voldoende informatie beschikbaar is om een zinvolle vergelijking te maken.
+
+De browser berekent vervolgens de geschatte sessiekosten voor de gekozen laadhoeveelheid op basis van de prijsregels van de geselecteerde laadpassen.
+
+Meer informatie over de berekening, databronnen en beperkingen staat op de pagina [Methodologie](methodologie.html).
+
+## Databronnen
+
+De applicatie gebruikt de openbare OCPI-data van NDW voor onder andere:
+
+- laadlocaties;
+- operators;
+- connectoren en laadvermogen;
+- beschikbaarheidsstatus;
+- gepubliceerde CPO-tarieven, waar beschikbaar.
+
+Laadpunten worden eerst geografisch voorgeselecteerd rond Huizen en daarna gecontroleerd tegen de gemeentegrens in `huizen-boundary.geojson`.
+
+## Belangrijke kanttekening
+
+Laadtarieven zijn complex. De uiteindelijke prijs kan onder andere afhangen van de laadpaalexploitant [CPO], laadpasaanbieder [MSP], roamingafspraken, lokale concessies, starttarieven, tijd- of blokkeerkosten en specifieke connectorvoorwaarden.
+
+Deze website is daarom bedoeld als **vergelijkingshulpmiddel**, niet als officiële prijs- of facturatiebron. De app, prijspagina en uiteindelijke factuur van de laadpasaanbieder blijven leidend.
+
+## Technische opzet
+
+De website is volledig statisch en draait via GitHub Pages. Er is geen backend, database of API-key nodig.
 
 ```text
-https://rubenwoudsma.github.io/laadpalenhuizen/
+NDW open data
+      ↓
+GitHub Actions
+      ↓
+process.py
+      ↓
+huizen-data.json
+      ↓
+GitHub Pages
+      ↓
+index.html
 ```
 
-## Hoe werkt het?
+`process.py` downloadt en verwerkt de NDW-data. De gegenereerde dataset wordt als `huizen-data.json` in de repository opgeslagen. De webpagina leest dit bestand rechtstreeks in de browser.
 
-```text
-NDW open data [gratis, geen API-key]
-         ↓  [dagelijks, 06:00 UTC]
-GitHub Actions → process.py
-         ↓
-huizen-data.json [gecommit naar repo]
-         ↓
-GitHub Pages [publiceert main branch / root]
-         ↓
-index.html leest huizen-data.json
-```
+## Lokaal draaien
 
-## Wat doet deze repo?
-
-Deze repository bevat een statische website die:
-
-1. NDW open data downloadt.
-2. Publieke laadpunten filtert op de gemeentegrens van Huizen.
-3. Locaties en tarieven combineert.
-4. Een compact `huizen-data.json` bestand genereert.
-5. De kaart in `index.html` toont via GitHub Pages.
-
-Er is geen backend, database of API-key nodig.
-
-## Setup
-
-### 1. Clone deze repo
+Clone de repository:
 
 ```bash
 git clone https://github.com/rubenwoudsma/laadpalenhuizen.git
 cd laadpalenhuizen
 ```
 
-### 2. Handmatig draaien [testen]
+Start een lokale webserver:
+
+```bash
+python3 -m http.server 8000
+```
+
+Open daarna:
+
+```text
+http://localhost:8000/
+```
+
+Wil je de NDW-data opnieuw ophalen en verwerken, draai dan:
 
 ```bash
 python3 process.py
 ```
 
-Dit schrijft lokaal:
+Hiervoor is een internetverbinding nodig.
 
-```text
-huizen-data.json
-```
-
-Start daarna een lokale webserver:
+De prijsregels kunnen worden getest met:
 
 ```bash
-python3 -m http.server 8080
+python3 -m unittest discover -s tests
 ```
 
-Open vervolgens:
+## Automatische updates
+
+De workflow in `.github/workflows/update.yml` haalt dagelijks de NDW-data op, voert de tests uit en genereert een nieuwe `huizen-data.json`. Als de dataset is gewijzigd, wordt deze automatisch teruggeschreven naar de repository.
+
+Voor GitHub Actions zijn geen API-secrets nodig. De workflow heeft wel schrijfrechten op de repository nodig.
+
+## Projectstructuur
 
 ```text
-http://localhost:8080
+.github/workflows/update.yml  Automatische NDW-update
+index.html                    Kaart, filters en prijsvergelijking
+methodologie.html             Uitleg over data en tariefberekening
+process.py                    NDW-preprocessor en prijsregels
+huizen-data.json              Gegenereerde laadpuntdata
+huizen-boundary.geojson       Gemeentegrens Huizen
+tests/test_pricing.py         Tests voor de prijsregels
 ```
 
-## GitHub Pages
+## Herkomst
 
-Deze site is bedoeld om direct vanuit de root van de `main` branch te draaien.
-
-Instelling in GitHub:
-
-```text
-Settings → Pages
-Source: Deploy from a branch
-Branch: main
-Folder: /root
-```
-
-GitHub Pages publiceert daarna automatisch de bestanden uit de repository.
-
-## GitHub Actions [automatische dagelijkse update]
-
-De workflow in `.github/workflows/update.yml` draait elke dag om 06:00 UTC.
-
-De workflow doet het volgende:
-
-1. Downloadt de actuele NDW-bestanden.
-2. Draait `process.py`.
-3. Genereert een nieuwe `huizen-data.json`.
-4. Controleert of de data gewijzigd is.
-5. Commit de nieuwe data terug naar de repo als er wijzigingen zijn.
-
-Geen secrets nodig, NDW-data is openbaar beschikbaar.
-
-Let op: de workflow moet schrijfrechten hebben.
-
-Controleer in GitHub:
-
-```text
-Settings → Actions → General → Workflow permissions
-Read and write permissions
-```
-
-## Data bronnen
-
-| Bron | Bestand | Update |
-|------|---------|--------|
-| NDW locaties [OCPI] | `charging_point_locations_ocpi.json.gz` | Dagelijks |
-| NDW tarieven [OCPI] | `charging_point_tariffs_ocpi.json.gz` | Dagelijks |
-
-NDW haalt data op bij laadpaalexploitanten [CPO's]. De open databestanden worden periodiek bijgewerkt.
-
-## Gemeentegrens Huizen
-
-De filtering gebeurt in twee stappen:
-
-1. Een ruime bounding box rond Huizen voor snelle voorselectie.
-2. Een precieze polygon-check op basis van `huizen-boundary.geojson`.
-
-Het bestand `huizen-boundary.geojson` bevat de gemeentegrens van Huizen als GeoJSON `Feature` met een `MultiPolygon` geometry.
-
-## Passen vergeleken
-
-De site vergelijkt een aantal veelgebruikte laadpassen op basis van beschikbare NDW-tarieven en fallbackregels in `process.py`.
-
-| Pas | Maandkosten | Methode in deze site |
-|-----|-------------|----------------------|
-| Vattenfall | €0 | CPO-tarief uit NDW waar beschikbaar, anders indicatieve fallback op basis van operator |
-| Laadkompas | €4,78/maand | CPO-basistarief of indicatieve fallback op basis van operator |
-| Allego | €0 | CPO-tarief uit NDW waar beschikbaar, met aparte fallback voor Allego-locaties |
-| Shell Recharge | €0 | Indicatief vast AC-tarief voor vergelijking, transactiekosten niet meegenomen |
-| Chargemap | €0 | CPO-tarief met indicatieve serviceopslag, of fallback op basis van operator |
-
-De tarieven zijn indicatief. De exacte kosten kunnen verschillen per laadpaal, laadpas, operator, roamingafspraak, starttarief, blokkeertarief en moment van laden. Controleer daarom altijd de app van je laadpas of aanbieder voordat je gaat laden.
-
-## Belangrijke kanttekeningen
-
-Deze site is bedoeld als hulpmiddel, niet als officiële prijsbron.
-
-Mogelijke beperkingen:
-
-- Niet elk laadpunt heeft een volledig NDW-tarief.
-- Sommige tarieven worden geschat via fallbackregels in `process.py`.
-- Beschikbaarheid kan afwijken van de werkelijke situatie bij de laadpaal.
-- Laadpassen kunnen eigen voorwaarden, starttarieven of roamingkosten rekenen.
-- Tarieven kunnen wijzigen zonder dat dit direct zichtbaar is in de open data.
-
-## Bestanden
-
-```text
-laadpalenhuizen/
-├── index.html                  ← website en kaart
-├── methodologie.html           ← uitleg over data en tariefberekening
-├── huizen-data.json            ← gegenereerde laadpuntdata
-├── huizen-boundary.geojson     ← gemeentegrens Huizen
-├── process.py                  ← NDW downloader en preprocessor
-├── .nojekyll                   ← voorkomt Jekyll-verwerking door GitHub Pages
-└── .github/workflows/
-      └── update.yml            ← dagelijkse update via GitHub Actions
-```
-
-## Gebaseerd op
-
-Dit project is gebaseerd op de open source repository:
-
-```text
-https://github.com/jdevalk/laadpalenwijchen.nl
-```
-
-Aanpassingen voor deze versie:
-
-- Omgezet van Wijchen naar Huizen.
-- Gemeentegrens vervangen door `huizen-boundary.geojson`.
-- Outputbestand aangepast van `wijchen-data.json` naar `huizen-data.json`.
-- Bounding box aangepast naar de omgeving Huizen.
-- Workflow aangepast voor GitHub Pages in plaats van Cloudflare Pages.
-- Teksten, methodologie en kaartinstellingen aangepast voor Huizen.
-
-## Licentie
-
-Controleer de licentie van de oorspronkelijke repository en neem die over als deze van toepassing is. 
+Dit project is ontstaan vanuit de open source repository `jdevalk/laadpalenwijchen.nl` en is aangepast voor de gemeente Huizen en deze manier van laadpasvergelijking.
