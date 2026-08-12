@@ -20,13 +20,14 @@ There is intentionally no Cloudflare Pages Function and no `/api/ocm` endpoint. 
 
 ## Pricing principles
 
-1. Prefer a direct NDW/OCPI connector tariff.
+1. Prefer a direct NDW/OCPI connector tariff and resolve tariff IDs in country/party scope.
 2. If direct pricing is absent, an operator median can be used only with at least five samples and only for operators where a nationwide median is not obviously misleading.
-3. Never invent a generic CPO fallback. Unknown is better than false precision.
-4. Model card-specific kWh price/markup and per-session fee separately.
-5. Do not declare a winner unless at least two selected passes have a calculable estimate.
-6. Monthly-subscription plans are outside the core comparison until the UX includes a user-specific monthly charging frequency.
-7. If a provider advertises a discount but does not expose a single safe connector-specific rate, show a note instead of inventing a discount.
+3. A targeted regional fallback is allowed only when an official source publishes a traceable concession tariff or range and the location can be tied to that region. TotalEnergies in Huizen currently uses this rule for MRA-E.
+4. Never invent a generic CPO fallback. Unknown is better than false precision.
+5. Model card-specific kWh price/markup and per-session fee separately. Propagate CPO price ranges into pass session-cost ranges.
+6. With price ranges, declare a winner only if that pass's maximum calculated cost is below every other pass's minimum calculated cost. Overlapping ranges must remain ambiguous.
+7. Monthly-subscription plans are outside the core comparison until the UX includes a user-specific monthly charging frequency.
+8. If a provider advertises a discount but does not expose a single safe connector-specific rate, show a note instead of inventing a discount.
 
 ## Current core passes
 
@@ -51,4 +52,4 @@ node --check /tmp/laadpalenhuizen-index.js   # after extracting the inline scrip
 python3 -m http.server 8000
 ```
 
-Keep the project free of Python runtime dependencies unless there is a strong reason to add one. Avoid reintroducing hardcoded per-operator fallback price tables.
+Keep the project free of Python runtime dependencies unless there is a strong reason to add one. Avoid generic per-operator fallback tables. Any targeted regional fallback must have an official source URL, verification date, explicit geographic rationale and regression tests.

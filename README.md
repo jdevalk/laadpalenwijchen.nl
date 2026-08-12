@@ -36,9 +36,13 @@ De uiteindelijke kosten bij een laadpaal kunnen afwijken. Controleer bij twijfel
 
 De basis voor de kaart is openbare laadpaaldata van het Nationaal Dataportaal Wegverkeer [NDW]. De dataset wordt dagelijks bijgewerkt via GitHub Actions.
 
-Voor een laadlocatie probeert de preprocessor eerst een rechtstreeks gepubliceerd NDW/OCPI-tarief te gebruiken. Als dat niet beschikbaar is, kan voor geschikte operators een mediaan van voldoende landelijke tariefwaarnemingen worden gebruikt. Wanneer er onvoldoende betrouwbare prijsinformatie is, blijft het basistarief onbekend.
+Voor een laadlocatie probeert de preprocessor eerst een rechtstreeks gepubliceerd NDW/OCPI-tarief te gebruiken. Tarieven worden gekoppeld binnen de OCPI-partijscope, zodat dezelfde tarief-ID bij verschillende exploitanten niet per ongeluk wordt verwisseld.
 
-Er wordt bewust geen generieke fallbackprijs ingevuld om toch een winnaar te kunnen tonen. Een laadpas wordt alleen als voordeligste optie weergegeven wanneer er voldoende informatie beschikbaar is om een zinvolle vergelijking te maken.
+Als een direct tarief ontbreekt, kan voor geschikte operators een mediaan van voldoende landelijke tariefwaarnemingen worden gebruikt. Voor operators waarvan tarieven sterk per regio of concessie verschillen, wordt zo'n landelijke mediaan niet gebruikt.
+
+Voor TotalEnergies-locaties in Huizen gebruikt de kaart, wanneer NDW geen bruikbaar direct tarief levert, de officiële MRA-E-tarieven die TotalEnergies voor Noord-Holland, Flevoland en Utrecht publiceert. Omdat uit de locatiegegevens niet altijd blijkt welke concessie van toepassing is, wordt voor reguliere AC-laders een prijsband van €0,34 tot €0,48 per kWh gebruikt. Deze bandbreedte wordt zichtbaar doorgerekend naar de sessiekosten.
+
+Er wordt geen generieke fallbackprijs ingevuld om toch een winnaar te kunnen tonen. Als prijsbanden van laadpassen overlappen, meldt de kaart dat er geen eenduidige goedkoopste pas is.
 
 De browser berekent vervolgens de geschatte sessiekosten voor de gekozen laadhoeveelheid op basis van de prijsregels van de geselecteerde laadpassen.
 
@@ -53,6 +57,8 @@ De applicatie gebruikt de openbare OCPI-data van NDW voor onder andere:
 - connectoren en laadvermogen;
 - beschikbaarheidsstatus;
 - gepubliceerde CPO-tarieven, waar beschikbaar.
+
+Voor de regionale TotalEnergies-fallback worden daarnaast de openbare informatie van gemeente Huizen, Laadwerk en de actuele MRA-E-tarieven van TotalEnergies gebruikt.
 
 Laadpunten worden eerst geografisch voorgeselecteerd rond Huizen en daarna gecontroleerd tegen de gemeentegrens in `huizen-boundary.geojson`.
 
