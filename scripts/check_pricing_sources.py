@@ -25,12 +25,26 @@ USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safa
 
 
 class TextExtractor(HTMLParser):
+    # Script/style/template payloads often contain duplicate or generated page text.
+    # Including those blobs makes otherwise stable visible phrases appear thousands
+    # of characters apart and causes false tariff mismatches.
+    IGNORED_TAGS = {"script", "style", "noscript", "template", "svg"}
+
     def __init__(self) -> None:
         super().__init__()
         self.parts: list[str] = []
+        self._ignored_depth = 0
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag.lower() in self.IGNORED_TAGS:
+            self._ignored_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in self.IGNORED_TAGS and self._ignored_depth:
+            self._ignored_depth -= 1
 
     def handle_data(self, data: str) -> None:
-        if data.strip():
+        if self._ignored_depth == 0 and data.strip():
             self.parts.append(data)
 
 

@@ -16,7 +16,7 @@ Live site: https://rubenwoudsma.github.io/laadpalenhuizen/
 - `.github/workflows/update.yml`: daily refresh at 06:37 UTC.
 - `.github/workflows/pricing-monitor.yml`: monthly verification of official pricing sources.
 - `pricing-sources.json`: monitored commercial assumptions and core-pass selection policy.
-- `scripts/check_pricing_sources.py`: source checker that opens a review issue through GitHub Actions when assumptions no longer match.
+- `scripts/check_pricing_sources.py`: source checker used by GitHub Actions; mismatches are written to the Job Summary and optionally synchronized to a review issue when repository Issues are enabled.
 - `tests/`: pricing-rule and source-monitor regression tests.
 
 There is intentionally no Cloudflare Pages Function and no `/api/ocm` endpoint. GitHub Pages is static. Availability shown by the frontend is the status snapshot contained in the last generated NDW dataset.

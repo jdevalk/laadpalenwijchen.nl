@@ -60,5 +60,5 @@ Omdat `functions/api/ocm.js` is verwijderd, gebruik bij een lokale Git-branch bi
 - Procentuele transactiekosten zijn als aparte prijscomponent aan het frontendmodel toegevoegd.
 - `pricing-sources.json` legt de gecontroleerde bronvoorwaarden en selectiecriteria voor kernpassen vast.
 - `scripts/check_pricing_sources.py` controleert officiële tariefpagina's zonder tarieven automatisch te wijzigen.
-- `.github/workflows/pricing-monitor.yml` voert deze controle maandelijks uit en opent of actualiseert een GitHub Issue wanneer handmatige beoordeling nodig is.
+- `.github/workflows/pricing-monitor.yml` voert deze controle maandelijks uit en publiceert het rapport in de Job Summary. Als GitHub Issues is ingeschakeld, opent of actualiseert de workflow ook een review-Issue.
 - De kernselectie blijft bewust beperkt tot passen met voldoende lokale/Nederlandse relevantie, reproduceerbare voorwaarden en duidelijke meerwaarde.
