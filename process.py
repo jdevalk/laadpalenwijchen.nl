@@ -15,7 +15,7 @@ Pricing philosophy:
 - TotalEnergies locations in Huizen use an official MRA-E regional price range
   when NDW does not expose a usable connector tariff. This is a targeted fallback
   based on public concession tariffs, not a generic invented price.
-- Charge-pass fees are modelled separately as per-session fees and kWh markups.
+- Charge-pass fees are modelled separately as per-session fees, percentage fees and kWh markups.
 - The browser calculates session totals for the user's selected amount of energy.
 
 No external Python dependencies are required.
@@ -97,6 +97,17 @@ PASSES = [
         "default_selected": True,
     },
     {
+        "id": "tap_light",
+        "name": "Tap Electric",
+        "plan": "Light",
+        "color": "#0891b2",
+        "monthly_fee": 0.0,
+        "summary": "CPO-tarief + 5% transactiekosten per sessie",
+        "verified_at": "2026-08-12",
+        "source_url": "https://tapelectric.app/nl/laadpas/",
+        "default_selected": True,
+    },
+    {
         "id": "vattenfall",
         "name": "Vattenfall InCharge",
         "plan": "Gratis laadpas",
@@ -137,7 +148,7 @@ PASSES = [
         "monthly_fee": 0.0,
         "summary": "CPO-tarief + €0,47 per sessie",
         "verified_at": "2026-08-12",
-        "source_url": "https://laadkompas.nl/laadpas/",
+        "source_url": "https://laadkompas.nl/laadpas/zonder-abonnement/",
         "default_selected": True,
     },
 ]
@@ -392,6 +403,7 @@ def make_quote(
     basis: str,
     note: Optional[str] = None,
     price_range: Optional[list[float]] = None,
+    transaction_percentage: float = 0.0,
 ) -> dict:
     quote = {
         "kwh": round(float(kwh), 4),
@@ -403,6 +415,8 @@ def make_quote(
         quote["note"] = note
     if price_range:
         quote["range"] = [round(float(v), 4) for v in price_range]
+    if transaction_percentage:
+        quote["percentage"] = round(float(transaction_percentage), 4)
     return quote
 
 
@@ -440,6 +454,21 @@ def build_pricing(
             cpo_source,
             note=anwb_note,
             price_range=shifted_range(cpo_rate_range),
+        )
+
+    # Tap Electric Light: no monthly subscription. Tap publishes the plan as
+    # the charging-station tariff plus a 5% transaction fee per session. The
+    # percentage is kept as a separate component so the frontend can show the
+    # underlying CPO rate/range transparently instead of hiding the fee in €/kWh.
+    if cpo_rate is not None:
+        pricing["tap_light"] = make_quote(
+            cpo_rate,
+            0.0,
+            base_confidence,
+            cpo_source,
+            note=merge_notes(cpo_note, "Tap Light rekent 5% transactiekosten over het gemodelleerde laadpunttarief."),
+            price_range=shifted_range(cpo_rate_range),
+            transaction_percentage=0.05,
         )
 
     # Vattenfall: no start fee on own InCharge network, EUR 0.35/session on

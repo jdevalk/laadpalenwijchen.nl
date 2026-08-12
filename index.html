@@ -279,16 +279,18 @@ function passLabel(pass) {
 
 function sessionCost(quote) {
   if (!quote || quote.kwh == null) return null;
-  return quote.kwh * energyKwh + (quote.session || 0);
+  const percentage = Number(quote.percentage || 0);
+  return quote.kwh * energyKwh * (1 + percentage) + (quote.session || 0);
 }
 
 function sessionCostRange(quote) {
   if (!quote || quote.kwh == null) return null;
   const kwhRange = quote.range?.length === 2 ? quote.range : [quote.kwh, quote.kwh];
   const session = quote.session || 0;
+  const multiplier = 1 + Number(quote.percentage || 0);
   return {
-    min: Number(kwhRange[0]) * energyKwh + session,
-    max: Number(kwhRange[1]) * energyKwh + session,
+    min: Number(kwhRange[0]) * energyKwh * multiplier + session,
+    max: Number(kwhRange[1]) * energyKwh * multiplier + session,
     mid: sessionCost(quote),
   };
 }
@@ -445,8 +447,9 @@ function quoteDetail(quote) {
   const parts = [];
   if (quote.range?.length === 2) parts.push(`${euro(quote.range[0],3)}-${euro(quote.range[1],3)}/kWh`);
   else parts.push(`${euro(quote.kwh, 3)}/kWh`);
+  if (quote.percentage) parts.push(`+${Math.round(Number(quote.percentage) * 100)}% transactiekosten`);
   if (quote.session) parts.push(`${euro(quote.session)} start`);
-  else parts.push('geen starttarief');
+  else if (!quote.percentage) parts.push('geen starttarief');
   parts.push(confidenceLabel(quote.confidence));
   return parts.join(' · ');
 }

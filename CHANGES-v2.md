@@ -52,3 +52,13 @@ Omdat `functions/api/ocm.js` is verwijderd, gebruik bij een lokale Git-branch bi
 - Prijsbanden worden doorgerekend naar sessiekosten per laadpas.
 - Een winnaar wordt alleen aangewezen wanneer prijsbanden niet overlappen.
 - De dagelijkse processor rapporteert diagnostiek over TotalEnergies tariff_ids en resolvable ENERGY-tarieven.
+
+
+## Tap Electric en tariefmonitor
+
+- Tap Electric Light toegevoegd aan de kernvergelijking: geen maandabonnement, CPO-tarief plus 5% transactiekosten per sessie.
+- Procentuele transactiekosten zijn als aparte prijscomponent aan het frontendmodel toegevoegd.
+- `pricing-sources.json` legt de gecontroleerde bronvoorwaarden en selectiecriteria voor kernpassen vast.
+- `scripts/check_pricing_sources.py` controleert officiële tariefpagina's zonder tarieven automatisch te wijzigen.
+- `.github/workflows/pricing-monitor.yml` voert deze controle maandelijks uit en opent of actualiseert een GitHub Issue wanneer handmatige beoordeling nodig is.
+- De kernselectie blijft bewust beperkt tot passen met voldoende lokale/Nederlandse relevantie, reproduceerbare voorwaarden en duidelijke meerwaarde.

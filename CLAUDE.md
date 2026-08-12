@@ -14,7 +14,10 @@ Live site: https://rubenwoudsma.github.io/laadpalenhuizen/
 - `huizen-boundary.geojson`: municipality boundary used after bbox prefiltering.
 - `methodologie.html`: public explanation of pricing assumptions, confidence and limitations.
 - `.github/workflows/update.yml`: daily refresh at 06:37 UTC.
-- `tests/test_pricing.py`: pricing-rule regression tests.
+- `.github/workflows/pricing-monitor.yml`: monthly verification of official pricing sources.
+- `pricing-sources.json`: monitored commercial assumptions and core-pass selection policy.
+- `scripts/check_pricing_sources.py`: source checker that opens a review issue through GitHub Actions when assumptions no longer match.
+- `tests/`: pricing-rule and source-monitor regression tests.
 
 There is intentionally no Cloudflare Pages Function and no `/api/ocm` endpoint. GitHub Pages is static. Availability shown by the frontend is the status snapshot contained in the last generated NDW dataset.
 
@@ -24,7 +27,7 @@ There is intentionally no Cloudflare Pages Function and no `/api/ocm` endpoint. 
 2. If direct pricing is absent, an operator median can be used only with at least five samples and only for operators where a nationwide median is not obviously misleading.
 3. A targeted regional fallback is allowed only when an official source publishes a traceable concession tariff or range and the location can be tied to that region. TotalEnergies in Huizen currently uses this rule for MRA-E.
 4. Never invent a generic CPO fallback. Unknown is better than false precision.
-5. Model card-specific kWh price/markup and per-session fee separately. Propagate CPO price ranges into pass session-cost ranges.
+5. Model card-specific kWh price/markup, percentage transaction fee and per-session fee separately. Propagate CPO price ranges into pass session-cost ranges.
 6. With price ranges, declare a winner only if that pass's maximum calculated cost is below every other pass's minimum calculated cost. Overlapping ranges must remain ambiguous.
 7. Monthly-subscription plans are outside the core comparison until the UX includes a user-specific monthly charging frequency.
 8. If a provider advertises a discount but does not expose a single safe connector-specific rate, show a note instead of inventing a discount.
@@ -34,12 +37,15 @@ There is intentionally no Cloudflare Pages Function and no `/api/ocm` endpoint. 
 Conditions last verified in code on 2026-08-12:
 
 - ANWB, no subscription
+- Tap Electric, Light
 - Vattenfall InCharge, free charge card
 - E-Flux by Road, Flex
 - Shell Recharge, Basic
 - Laadkompas, no subscription
 
-Each pass object in `process.py` has a `source_url` and `verified_at`. Update both when changing a commercial pricing rule.
+Each pass object in `process.py` has a `source_url` and `verified_at`. Update both when changing a commercial pricing rule. Keep `pricing-sources.json` in sync with the implemented rule.
+
+The core pass list is intentionally selective. Prefer plans without a monthly subscription, require a publicly reproducible pricing model, require meaningful Dutch/local relevance, and only add a provider when it contributes enough practical or pricing diversity to justify the extra comparison row.
 
 ## Development checks
 
