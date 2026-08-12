@@ -42,3 +42,13 @@ Deze branch-update is bedoeld als vervanging van de oude prijsvergelijking.
 ## Let op bij mergen
 
 Omdat `functions/api/ocm.js` is verwijderd, gebruik bij een lokale Git-branch bij voorkeur `git add -A` zodat ook de verwijdering wordt meegenomen in de commit.
+
+
+## MRA-E en TotalEnergies
+
+- OCPI-tarieven worden gekoppeld op land, partij en tarief-ID in plaats van alleen tarief-ID.
+- TotalEnergies is uitgesloten van de landelijke operator-mediaan omdat MRA-E-tarieven per concessie verschillen.
+- Voor TotalEnergies in Huizen wordt bij ontbrekende NDW-prijs een officiële MRA-E-prijsband gebruikt: AC EUR 0,34-0,48/kWh, DC EUR 0,54/kWh.
+- Prijsbanden worden doorgerekend naar sessiekosten per laadpas.
+- Een winnaar wordt alleen aangewezen wanneer prijsbanden niet overlappen.
+- De dagelijkse processor rapporteert diagnostiek over TotalEnergies tariff_ids en resolvable ENERGY-tarieven.

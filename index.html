@@ -118,6 +118,7 @@ header {
 }
 .source-direct { color:#1e40af; background:var(--blue-bg); border-color:#bfdbfe; }
 .source-estimate { color:#92400e; background:var(--amber-bg); border-color:#fcd34d; }
+.source-regional { color:#0f5f59; background:#ecfdf5; border-color:#99f6e4; }
 .source-unknown { color:#4b5563; background:#f3f4f6; border-color:#d1d5db; }
 .empty { padding:28px 16px; text-align:center; color:var(--muted); font-size:12px; line-height:1.5; }
 
@@ -281,6 +282,23 @@ function sessionCost(quote) {
   return quote.kwh * energyKwh + (quote.session || 0);
 }
 
+function sessionCostRange(quote) {
+  if (!quote || quote.kwh == null) return null;
+  const kwhRange = quote.range?.length === 2 ? quote.range : [quote.kwh, quote.kwh];
+  const session = quote.session || 0;
+  return {
+    min: Number(kwhRange[0]) * energyKwh + session,
+    max: Number(kwhRange[1]) * energyKwh + session,
+    mid: sessionCost(quote),
+  };
+}
+
+function formatCostRange(cost) {
+  if (!cost) return 'onbekend';
+  if (Math.abs(cost.max - cost.min) < 0.005) return euro(cost.mid);
+  return `${euro(cost.min)}-${euro(cost.max)}`;
+}
+
 function quoteCount(pt) {
   return [...selectedPasses].filter(id => pt.pricing?.[id]?.kwh != null).length;
 }
@@ -289,13 +307,22 @@ function comparisonFor(pt) {
   const rows = [...selectedPasses]
     .map(id => ({ id, quote: pt.pricing?.[id] }))
     .filter(row => row.quote?.kwh != null)
-    .map(row => ({ ...row, total: sessionCost(row.quote) }))
+    .map(row => ({ ...row, cost: sessionCostRange(row.quote) }))
+    .map(row => ({ ...row, total: row.cost.mid, min: row.cost.min, max: row.cost.max }))
     .sort((a, b) => a.total - b.total);
+
+  const comparable = rows.length >= 2;
+  let best = rows.length === 1 ? rows[0] : null;
+  if (comparable) {
+    best = rows.find(row => rows.every(other => other.id === row.id || row.max < other.min - 1e-9)) || null;
+  }
 
   return {
     rows,
-    best: rows[0] || null,
-    comparable: rows.length >= 2,
+    best,
+    likely: rows[0] || null,
+    comparable,
+    ambiguous: comparable && !best,
   };
 }
 
@@ -307,20 +334,24 @@ function confidenceLabel(confidence) {
 
 function sourceInfo(pt) {
   if (pt.pricing_source === 'ndw') return { cls:'source-direct', label:'NDW CPO-tarief' };
+  if (pt.pricing_source === 'totalenergies_mrae') return { cls:'source-regional', label:'Officiële TotalEnergies MRA-E prijsband' };
+  if (pt.pricing_source === 'totalenergies_mrae_dc') return { cls:'source-regional', label:'Officieel TotalEnergies MRA-E DC-tarief' };
   if (pt.pricing_source === 'operator_median') return { cls:'source-estimate', label:'Schatting via operator-mediaan' };
   return { cls:'source-unknown', label:'CPO-basistarief onbekend' };
 }
 
 function markerColor(pt) {
   const cmp = comparisonFor(pt);
-  if (!cmp.best || !cmp.comparable) return '#6b7280';
-  return passById(cmp.best.id)?.color || '#6b7280';
+  if (cmp.best && cmp.comparable) return passById(cmp.best.id)?.color || '#6b7280';
+  if (cmp.ambiguous) return '#0f766e';
+  return '#6b7280';
 }
 
 function markerText(pt) {
   const cmp = comparisonFor(pt);
-  if (!cmp.best) return '?';
-  return euro(cmp.best.total, 0).replace('€', '');
+  if (!cmp.likely) return '?';
+  const value = euro(cmp.likely.total, 0).replace('€', '');
+  return cmp.ambiguous ? `~${value}` : value;
 }
 
 function makeIcon(pt) {
@@ -340,24 +371,24 @@ function statusLabel(pt) {
 
 function popupQuoteRows(pt, cmp) {
   if (selectedPasses.size === 0) {
-    return '<div class="popup-quote"><div class="popup-quote-detail" style="padding-left:0">Selecteer minimaal één laadpas.</div></div>';
+    return '<div class="popup-quote"><div class="popup-quote-detail" style="padding-left:0">Selecteer minimaal een laadpas.</div></div>';
   }
 
   const rows = passes
     .filter(pass => selectedPasses.has(pass.id))
     .map(pass => {
       const quote = pt.pricing?.[pass.id];
-      return { pass, quote, total: sessionCost(quote) };
+      return { pass, quote, cost: sessionCostRange(quote) };
     })
     .sort((a, b) => {
-      if (a.total == null && b.total == null) return 0;
-      if (a.total == null) return 1;
-      if (b.total == null) return -1;
-      return a.total - b.total;
+      if (a.cost == null && b.cost == null) return 0;
+      if (a.cost == null) return 1;
+      if (b.cost == null) return -1;
+      return a.cost.mid - b.cost.mid;
     });
 
-  return rows.map(({ pass, quote, total }) => {
-    if (total == null) {
+  return rows.map(({ pass, quote, cost }) => {
+    if (cost == null) {
       return `<div class="popup-quote">
         <div class="popup-quote-main">
           <div class="popup-quote-pass"><span class="popup-quote-dot" style="background:${pass.color}"></span><span>${escapeHtml(pass.name)}</span></div>
@@ -367,26 +398,29 @@ function popupQuoteRows(pt, cmp) {
     }
 
     const isBest = cmp.comparable && cmp.best?.id === pass.id;
-    const detail = `${euro(quote.kwh, 3)}/kWh${quote.session ? ` + ${euro(quote.session)} start` : ''}`;
     return `<div class="popup-quote">
       <div class="popup-quote-main">
         <div class="popup-quote-pass"><span class="popup-quote-dot" style="background:${pass.color}"></span><span>${escapeHtml(pass.name)}</span></div>
-        <span class="popup-quote-price" style="${isBest ? `color:${pass.color}` : ''}">${euro(total)}</span>
+        <span class="popup-quote-price" style="${isBest ? `color:${pass.color}` : ''}">${formatCostRange(cost)}</span>
       </div>
-      <div class="popup-quote-detail">${detail}</div>
+      <div class="popup-quote-detail">${quoteDetail(quote)}</div>
     </div>`;
   }).join('');
 }
+
 
 function makePopup(pt) {
   const cmp = comparisonFor(pt);
   const src = sourceInfo(pt);
   let bestHtml = '<span>Prijsvergelijking</span><strong>onvoldoende data</strong>';
   if (cmp.best && cmp.comparable) {
-    bestHtml = `<span>Voordeligst: ${escapeHtml(passLabel(passById(cmp.best.id)))}</span><strong>${euro(cmp.best.total)}</strong>`;
+    bestHtml = `<span>Voordeligst: ${escapeHtml(passLabel(passById(cmp.best.id)))}</span><strong>${formatCostRange(cmp.best.cost)}</strong>`;
+  } else if (cmp.ambiguous) {
+    bestHtml = '<span>Geen eenduidige goedkoopste pas</span><strong>prijsbanden overlappen</strong>';
   } else if (cmp.best) {
-    bestHtml = `<span>Enige berekende pas voor ${energyKwh} kWh</span><strong>${euro(cmp.best.total)}</strong>`;
+    bestHtml = `<span>Enige berekende pas voor ${energyKwh} kWh</span><strong>${formatCostRange(cmp.best.cost)}</strong>`;
   }
+  const cpoRange = pt.cpo_rate_range?.length === 2 ? ` · CPO ${euro(pt.cpo_rate_range[0],3)}-${euro(pt.cpo_rate_range[1],3)}/kWh` : '';
   return `<div class="popup">
     <h3>${escapeHtml(pt.name)}</h3>
     <div class="sub">${escapeHtml(pt.operator)} · ${escapeHtml(pt.address)}</div>
@@ -395,10 +429,11 @@ function makePopup(pt) {
     <div class="popup-quotes">
       <div class="popup-quotes-title">Jouw passen voor ${energyKwh} kWh</div>
       <div class="popup-quotes-list">${popupQuoteRows(pt, cmp)}</div>
-      <span class="source-pill ${src.cls}">${src.label}</span>
+      <span class="source-pill ${src.cls}">${src.label}${cpoRange}</span>
     </div>
   </div>`;
 }
+
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -407,10 +442,11 @@ function escapeHtml(value) {
 }
 
 function quoteDetail(quote) {
-  const parts = [`${euro(quote.kwh, 3)}/kWh`];
+  const parts = [];
+  if (quote.range?.length === 2) parts.push(`${euro(quote.range[0],3)}-${euro(quote.range[1],3)}/kWh`);
+  else parts.push(`${euro(quote.kwh, 3)}/kWh`);
   if (quote.session) parts.push(`${euro(quote.session)} start`);
   else parts.push('geen starttarief');
-  if (quote.range?.length === 2) parts.push(`prijsband ${euro(quote.range[0])}-${euro(quote.range[1])}/kWh`);
   parts.push(confidenceLabel(quote.confidence));
   return parts.join(' · ');
 }
@@ -432,12 +468,12 @@ function renderQuoteRows(pt, cmp) {
       </div>`;
     }
 
-    const total = sessionCost(quote);
+    const cost = sessionCostRange(quote);
     const isBest = cmp.comparable && cmp.best?.id === id;
     return `<div class="quote-row">
       <div class="quote-main">
         <div class="quote-pass"><span class="quote-dot" style="background:${pass.color}"></span>${escapeHtml(pass.name)}</div>
-        <div class="quote-price" style="${isBest ? `color:${pass.color}` : ''}">${euro(total)}</div>
+        <div class="quote-price" style="${isBest ? `color:${pass.color}` : ''}">${formatCostRange(cost)}</div>
       </div>
       <div class="quote-detail">${quoteDetail(quote)}</div>
       ${quote.note ? `<div class="quote-note">${escapeHtml(quote.note)}</div>` : ''}
@@ -467,18 +503,24 @@ function cardBestHtml(pt, cmp) {
   if (selectedPasses.size === 0) {
     return `<div class="best-name">Selecteer je laadpassen</div><div class="best-price">-</div>`;
   }
-  if (!cmp.best) {
+  if (!cmp.likely) {
     return `<div class="best-name">Geen betrouwbare prijs</div><div class="best-price">-</div>`;
+  }
+  if (cmp.ambiguous) {
+    const pass = passById(cmp.likely.id);
+    return `<div class="best-name">Geen eenduidige goedkoopste pas</div>
+      <div class="best-price">${formatCostRange(cmp.likely.cost)}<span class="best-effective">laagste middenwaarde: ${escapeHtml(passLabel(pass))}</span></div>`;
   }
   const pass = passById(cmp.best.id);
   const effective = cmp.best.total / energyKwh;
   if (!cmp.comparable) {
     return `<div class="best-name">Enige berekende pas: ${escapeHtml(passLabel(pass))}</div>
-      <div class="best-price">${euro(cmp.best.total)}<span class="best-effective">${euro(effective, 3)}/kWh effectief</span></div>`;
+      <div class="best-price">${formatCostRange(cmp.best.cost)}<span class="best-effective">${euro(effective, 3)}/kWh effectief</span></div>`;
   }
   return `<div class="best-name">Voordeligst met jouw passen: ${escapeHtml(passLabel(pass))}</div>
-    <div class="best-price">${euro(cmp.best.total)}<span class="best-effective">${energyKwh} kWh · ${euro(effective, 3)}/kWh effectief</span></div>`;
+    <div class="best-price">${formatCostRange(cmp.best.cost)}<span class="best-effective">${energyKwh} kWh · ${euro(effective, 3)}/kWh effectief</span></div>`;
 }
+
 
 function renderList(inputPoints) {
   const list = document.getElementById('list');
@@ -489,7 +531,7 @@ function renderList(inputPoints) {
 
   list.innerHTML = inputPoints.map(pt => {
     const cmp = comparisonFor(pt);
-    const color = cmp.comparable && cmp.best ? (passById(cmp.best.id)?.color || '#6b7280') : '#6b7280';
+    const color = markerColor(pt);
     const src = sourceInfo(pt);
     const dist = distanceLabel(pt);
     const range = pt.cpo_rate_range?.length === 2 ? ` · CPO-range ${euro(pt.cpo_rate_range[0],3)}-${euro(pt.cpo_rate_range[1],3)}` : '';
@@ -693,7 +735,7 @@ async function init() {
     document.getElementById('stat-comparable').textContent = data.stats?.comparison_ready ?? points.filter(p => Object.keys(p.pricing || {}).length >= 2).length;
     document.getElementById('stat-free').textContent = data.stats?.available_snapshot ?? points.filter(p => p.available).length;
     document.getElementById('data-age').textContent = formatAge(data.generated_at);
-    document.getElementById('footer-stats').textContent = `· ${data.stats?.ndw_priced ?? 0} direct geprijsd · ${data.stats?.unknown_base_rate ?? 0} CPO-tarieven onbekend`;
+    document.getElementById('footer-stats').textContent = `· ${data.stats?.ndw_priced ?? 0} direct · ${data.stats?.regional_priced ?? 0} regionale indicatie · ${data.stats?.unknown_base_rate ?? 0} onbekend`;
 
     markers = points.map(pt => {
       const marker = L.marker([pt.lat, pt.lng], { icon:makeIcon(pt) }).bindPopup(makePopup(pt), { maxWidth:320 });

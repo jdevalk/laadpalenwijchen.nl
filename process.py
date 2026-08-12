@@ -6,11 +6,15 @@ Downloads public NDW OCPI location and tariff files, filters them to the
 municipality of Huizen, and writes huizen-data.json for the static GitHub Pages
 site.
 
-Pricing philosophy in this version:
+Pricing philosophy:
 - NDW CPO energy tariffs are the preferred base price.
+- Tariff IDs are resolved in their OCPI country/party scope, with an ID-only
+  fallback only when that tariff ID is unique in the national feed.
 - If a direct connector tariff is missing, an operator median may be used as an
   explicitly labelled estimate when enough nationwide samples exist.
-- There is no generic hardcoded CPO fallback. Unknown base prices remain unknown.
+- TotalEnergies locations in Huizen use an official MRA-E regional price range
+  when NDW does not expose a usable connector tariff. This is a targeted fallback
+  based on public concession tariffs, not a generic invented price.
 - Charge-pass fees are modelled separately as per-session fees and kWh markups.
 - The browser calculates session totals for the user's selected amount of energy.
 
@@ -43,7 +47,7 @@ LNG_MIN, LNG_MAX = 5.175, 5.305
 BOUNDARY_FILE = os.path.join(os.path.dirname(__file__) or ".", "huizen-boundary.geojson")
 
 HEADERS = {
-    "User-Agent": "laadpalenhuizen/2.0 (github.com/rubenwoudsma/laadpalenhuizen)",
+    "User-Agent": "laadpalenhuizen (github.com/rubenwoudsma/laadpalenhuizen)",
     "Accept-Encoding": "identity",
 }
 
@@ -56,7 +60,26 @@ SKIP_OPERATOR_MEDIAN = {
     "vattenfall incharge",
     "vattenfall",
     "nuon",
+    "totalenergies",
+    "total energies",
 }
+
+# Huizen participates in the joint public charging approach for Noord-Holland,
+# Flevoland and Utrecht through Laadwerk/MRA-E. TotalEnergies publishes current
+# concession tariffs for that region. When NDW does not expose a usable tariff
+# for a TotalEnergies connector in Huizen, these official regional figures are
+# used as an explicitly labelled fallback.
+#
+# AC: MRA-E 2-5 = EUR 0.48/kWh incl. VAT, MRA-E 6 = EUR 0.36/kWh,
+#     MRA-E 6 dynamic = EUR 0.34-0.36/kWh. Without a reliable concession marker
+#     per connector we retain the full official EUR 0.34-0.48 range.
+# DC: MRA-E = EUR 0.54/kWh incl. VAT.
+TOTALENERGIES_MRAE_AC_RANGE = (0.34, 0.48)
+TOTALENERGIES_MRAE_DC_RATE = 0.54
+TOTALENERGIES_MRAE_VERIFIED_AT = "2026-08-12"
+TOTALENERGIES_MRAE_SOURCE_URL = "https://totalenergies.nl/elektrisch-rijden/vind-laadpunt"
+HUIZEN_CHARGING_SOURCE_URL = "https://www.huizen.nl/elektrisch-laden"
+LAADWERK_SOURCE_URL = "https://www.laadwerk.nl/diensten/laadinfra"
 
 # Public charge-pass conditions verified on 2026-08-12.
 # The site deliberately compares plans without a monthly subscription so that a
@@ -198,18 +221,98 @@ def energy_price_including_vat(component: dict) -> Optional[float]:
     return round(price, 4)
 
 
-def get_cpo_rate(tariff_id: str, tariff_map: dict) -> Optional[float]:
-    """Extract the first usable OCPI ENERGY price for a tariff."""
-    tariff = tariff_map.get(tariff_id)
-    if not tariff:
-        return None
+def build_tariff_index(tariffs: list) -> dict:
+    """Index OCPI tariffs by country/party/id and by globally unique ID.
 
+    OCPI tariff IDs only need to be unique within a CPO platform. A plain
+    ``{id: tariff}`` map can therefore silently associate a connector with the
+    wrong tariff when two parties use the same ID. Location country_code and
+    party_id provide the correct scope.
+    """
+    scoped = {}
+    by_id: dict[str, list[dict]] = {}
+
+    for tariff in tariffs:
+        if not isinstance(tariff, dict) or not tariff.get("id"):
+            continue
+        tariff_id = str(tariff["id"])
+        country = str(tariff.get("country_code") or "").upper()
+        party = str(tariff.get("party_id") or "").upper()
+        if country and party:
+            scoped[(country, party, tariff_id)] = tariff
+        by_id.setdefault(tariff_id, []).append(tariff)
+
+    unique = {tariff_id: rows[0] for tariff_id, rows in by_id.items() if len(rows) == 1}
+    return {
+        "scoped": scoped,
+        "unique": unique,
+        "id_collisions": sum(1 for rows in by_id.values() if len(rows) > 1),
+        "total": len(tariffs),
+    }
+
+
+def get_tariff(
+    tariff_id: str,
+    tariff_index: dict,
+    country_code: str = "",
+    party_id: str = "",
+) -> Optional[dict]:
+    """Resolve a tariff in OCPI party scope, then by ID only if globally unique."""
+    country = (country_code or "").upper()
+    party = (party_id or "").upper()
+    if country and party:
+        tariff = tariff_index.get("scoped", {}).get((country, party, str(tariff_id)))
+        if tariff:
+            return tariff
+    return tariff_index.get("unique", {}).get(str(tariff_id))
+
+
+def get_cpo_rates(
+    tariff_id: str,
+    tariff_index: dict,
+    country_code: str = "",
+    party_id: str = "",
+) -> list[float]:
+    """Return all distinct usable OCPI ENERGY prices for a resolved tariff."""
+    tariff = get_tariff(tariff_id, tariff_index, country_code, party_id)
+    if not tariff:
+        return []
+
+    rates = []
     for element in tariff.get("elements", []):
         for component in element.get("price_components", []):
             rate = energy_price_including_vat(component)
             if rate is not None:
-                return rate
-    return None
+                rates.append(rate)
+    return sorted(set(rates))
+
+
+def get_cpo_rate(
+    tariff_id: str,
+    tariff_index: dict,
+    country_code: str = "",
+    party_id: str = "",
+) -> Optional[float]:
+    """Return one usable ENERGY price for median building and compatibility."""
+    rates = get_cpo_rates(tariff_id, tariff_index, country_code, party_id)
+    return rates[0] if rates else None
+
+
+def get_cpo_price_info(
+    tariff_id: str,
+    tariff_index: dict,
+    country_code: str = "",
+    party_id: str = "",
+) -> Optional[dict]:
+    """Return midpoint plus a range when an OCPI tariff exposes multiple prices."""
+    rates = get_cpo_rates(tariff_id, tariff_index, country_code, party_id)
+    if not rates:
+        return None
+    low, high = rates[0], rates[-1]
+    return {
+        "rate": round((low + high) / 2, 4),
+        "range": [low, high] if len(rates) > 1 else None,
+    }
 
 
 def operator_key(name: str) -> str:
@@ -233,13 +336,53 @@ def find_operator_median(operator_name: str, medians: dict) -> Optional[float]:
 def confidence_for_source(source: str) -> str:
     if source == "ndw":
         return "high"
-    if source == "operator_median":
+    if source in {"operator_median", "totalenergies_mrae", "totalenergies_mrae_dc"}:
         return "medium"
     return "low"
 
 
 def downgrade_confidence(value: str) -> str:
     return {"high": "medium", "medium": "low", "low": "low"}.get(value, "low")
+
+
+def merge_notes(*notes: Optional[str]) -> Optional[str]:
+    values = [note.strip() for note in notes if note and note.strip()]
+    return " ".join(values) or None
+
+
+def shifted_range(price_range: Optional[list[float] | tuple[float, float]], delta: float = 0.0) -> Optional[list[float]]:
+    if not price_range or len(price_range) != 2:
+        return None
+    return [round(float(price_range[0]) + delta, 4), round(float(price_range[1]) + delta, 4)]
+
+
+def totalenergies_mrae_fallback(operator_name: str, power_kw: float) -> Optional[dict]:
+    """Return official MRA-E pricing for TotalEnergies when NDW is incomplete.
+
+    The municipality of Huizen works through Laadwerk in the Noord-Holland,
+    Flevoland and Utrecht public charging collaboration. TotalEnergies publishes
+    different MRA-E AC tariffs by concession, but the NDW location does not
+    reliably expose which concession applies. Therefore AC remains a range.
+    """
+    op = operator_key(operator_name)
+    if "totalenergies" not in op and "total energies" not in op:
+        return None
+
+    if power_kw >= 50:
+        return {
+            "rate": TOTALENERGIES_MRAE_DC_RATE,
+            "range": None,
+            "source": "totalenergies_mrae_dc",
+            "note": "Officieel TotalEnergies MRA-E DC-tarief voor Noord-Holland, Flevoland en Utrecht.",
+        }
+
+    low, high = TOTALENERGIES_MRAE_AC_RANGE
+    return {
+        "rate": round((low + high) / 2, 4),
+        "range": [low, high],
+        "source": "totalenergies_mrae",
+        "note": "Officiële MRA-E prijsband van TotalEnergies; de exacte concessie en eventuele dynamische prijs zijn niet uit NDW af te leiden.",
+    }
 
 
 def make_quote(
@@ -268,58 +411,72 @@ def build_pricing(
     cpo_source: str,
     operator_name: str,
     max_power_kw: float = 0,
+    cpo_rate_range: Optional[list[float]] = None,
+    cpo_note: Optional[str] = None,
 ) -> dict:
     """Build per-pass price components for one representative location tariff."""
     pricing: dict[str, dict] = {}
     op = operator_key(operator_name)
     base_confidence = confidence_for_source(cpo_source)
+    if cpo_rate_range and len(cpo_rate_range) == 2 and abs(cpo_rate_range[1] - cpo_rate_range[0]) > 1e-9:
+        base_confidence = downgrade_confidence(base_confidence)
 
-    # ANWB free plan: CPO price + €0.89/session. ANWB advertises special network
-    # discounts, but without a universal public per-connector figure we do not
-    # subtract an invented amount here.
+    # ANWB free plan: CPO price + EUR 0.89/session. ANWB advertises special
+    # network discounts, but without a universal public per-connector figure we
+    # do not subtract an invented amount here.
     if cpo_rate is not None:
         anwb_confidence = base_confidence
-        anwb_note = None
+        anwb_note = cpo_note
         if any(token in op for token in ANWB_DISCOUNT_NETWORKS):
             anwb_confidence = downgrade_confidence(anwb_confidence)
-            anwb_note = "ANWB noemt korting op dit netwerk; de app kan een lager tarief tonen."
+            anwb_note = merge_notes(
+                cpo_note,
+                "ANWB noemt korting op dit netwerk; de app kan een lager tarief tonen.",
+            )
         pricing["anwb_free"] = make_quote(
             cpo_rate,
             0.89,
             anwb_confidence,
             cpo_source,
             note=anwb_note,
+            price_range=shifted_range(cpo_rate_range),
         )
 
-    # Vattenfall: no start fee on own InCharge network, €0.35/session on other
-    # networks. Roaming kWh rates are shown in the Vattenfall app and can differ
-    # from the CPO base tariff, so confidence is downgraded for roaming.
+    # Vattenfall: no start fee on own InCharge network, EUR 0.35/session on
+    # other networks. Roaming kWh rates are shown in the Vattenfall app and can
+    # differ from the CPO base tariff, so confidence is downgraded for roaming.
     if cpo_rate is not None:
         own_vattenfall = "vattenfall" in op or "incharge" in op or "nuon" in op
         vf_confidence = base_confidence if own_vattenfall else downgrade_confidence(base_confidence)
-        vf_note = None if own_vattenfall else "Roaming kWh-tarief kan in de InCharge-app afwijken van het CPO-basistarief."
+        vf_note = cpo_note if own_vattenfall else merge_notes(
+            cpo_note,
+            "Roaming kWh-tarief kan in de InCharge-app afwijken van het CPO-basistarief.",
+        )
         pricing["vattenfall"] = make_quote(
             cpo_rate,
             0.0 if own_vattenfall else 0.35,
             vf_confidence,
             cpo_source,
             note=vf_note,
+            price_range=shifted_range(cpo_rate_range),
         )
 
-    # E-Flux Flex: €0.31/session, plus €0.024/kWh outside E-Flux. E-Flux also
-    # documents an extra €0.48/session on selected roaming-clearing networks;
-    # the NDW location data does not reliably expose which clearing route applies.
+    # E-Flux Flex: EUR 0.31/session, plus EUR 0.024/kWh outside E-Flux.
     if cpo_rate is not None:
         own_eflux = "e-flux" in op or "e flux" in op
         markup = 0.0 if own_eflux else 0.024
         ef_confidence = base_confidence if own_eflux else downgrade_confidence(base_confidence)
-        ef_note = None if own_eflux else "Op sommige clearingnetwerken kan E-Flux nog €0,48 extra per sessie rekenen."
+        ef_note = cpo_note if own_eflux else merge_notes(
+            cpo_note,
+            "Op sommige clearingnetwerken kan E-Flux nog €0,48 extra per sessie rekenen.",
+        )
         pricing["eflux_flex"] = make_quote(
             cpo_rate + markup,
             0.31,
             ef_confidence,
             cpo_source,
             note=ef_note,
+            price_range=shifted_range(cpo_rate_range, markup),
         )
 
     # Shell Recharge Basic publishes fixed price bands rather than CPO pass-through
@@ -354,13 +511,15 @@ def build_pricing(
             price_range=[0.50, 0.60],
         )
 
-    # Laadkompas without subscription: CPO price + €0.47/session.
+    # Laadkompas without subscription: CPO price + EUR 0.47/session.
     if cpo_rate is not None:
         pricing["laadkompas_free"] = make_quote(
             cpo_rate,
             0.47,
             base_confidence,
             cpo_source,
+            note=cpo_note,
+            price_range=shifted_range(cpo_rate_range),
         )
 
     return pricing
@@ -408,6 +567,8 @@ def process_location(
         return None
 
     operator = (loc.get("operator") or {}).get("name", "Onbekend")
+    country_code = str(loc.get("country_code") or "")
+    party_id = str(loc.get("party_id") or "")
     name = loc.get("name") or loc.get("address") or "Laadpunt"
     address = loc.get("address", "")
     city = loc.get("city", "")
@@ -417,16 +578,30 @@ def process_location(
         status = evse.get("status", "UNKNOWN")
         for conn in evse.get("connectors", []):
             cpo_rate = None
+            cpo_rate_range = None
+            cpo_note = None
             used_tariff_id = None
             source = "unknown"
+            power_kw = connector_power_kw(conn)
 
             for tariff_id in conn.get("tariff_ids") or []:
-                rate = get_cpo_rate(tariff_id, tariff_map)
-                if rate is not None:
-                    cpo_rate = rate
+                price_info = get_cpo_price_info(tariff_id, tariff_map, country_code, party_id)
+                if price_info is not None:
+                    cpo_rate = price_info["rate"]
+                    cpo_rate_range = price_info["range"]
                     used_tariff_id = tariff_id
                     source = "ndw"
                     break
+
+            # Targeted official fallback for the dominant public CPO in Huizen.
+            # It is used only after a direct NDW tariff lookup failed.
+            if cpo_rate is None:
+                regional = totalenergies_mrae_fallback(operator, power_kw)
+                if regional:
+                    cpo_rate = regional["rate"]
+                    cpo_rate_range = regional["range"]
+                    cpo_note = regional["note"]
+                    source = regional["source"]
 
             if cpo_rate is None and operator_median:
                 median = find_operator_median(operator, operator_median)
@@ -438,10 +613,12 @@ def process_location(
                 {
                     "status": status,
                     "type": connector_type_label(conn),
-                    "power_kw": connector_power_kw(conn),
+                    "power_kw": power_kw,
                     "tariff_id": used_tariff_id,
                     "cpo_rate": cpo_rate,
+                    "cpo_rate_range": cpo_rate_range,
                     "pricing_source": source,
+                    "pricing_note": cpo_note,
                 }
             )
 
@@ -456,15 +633,40 @@ def process_location(
     # Prefer a connector with a direct NDW tariff, then an operator median, then
     # an unknown connector. This avoids using an arbitrary first connector when
     # better tariff data exists elsewhere at the same location.
-    source_rank = {"ndw": 2, "operator_median": 1, "unknown": 0}
+    source_rank = {
+        "ndw": 4,
+        "totalenergies_mrae_dc": 3,
+        "totalenergies_mrae": 3,
+        "operator_median": 2,
+        "unknown": 0,
+    }
     representative = max(connectors, key=lambda c: source_rank.get(c["pricing_source"], 0))
     cpo_rate = representative["cpo_rate"]
     pricing_source = representative["pricing_source"]
+    pricing_note = representative.get("pricing_note")
 
-    known_rates = sorted({round(c["cpo_rate"], 4) for c in connectors if c["cpo_rate"] is not None})
-    cpo_range = [known_rates[0], known_rates[-1]] if len(known_rates) > 1 else None
+    explicit_range = representative.get("cpo_rate_range")
+    if explicit_range:
+        cpo_range = explicit_range
+    else:
+        # Only compare rates derived from the same source as the representative.
+        # This avoids mixing a direct NDW tariff with a regional fallback that was
+        # used for another connector at the same location.
+        known_rates = sorted({
+            round(c["cpo_rate"], 4)
+            for c in connectors
+            if c["cpo_rate"] is not None and c["pricing_source"] == pricing_source
+        })
+        cpo_range = [known_rates[0], known_rates[-1]] if len(known_rates) > 1 else None
 
-    pricing = build_pricing(cpo_rate, pricing_source, operator, max_power)
+    pricing = build_pricing(
+        cpo_rate,
+        pricing_source,
+        operator,
+        max_power,
+        cpo_rate_range=cpo_range,
+        cpo_note=pricing_note,
+    )
 
     last_updated_values = [
         value
@@ -488,6 +690,7 @@ def process_location(
         "last_updated": last_updated,
         "pricing": pricing,
         "pricing_source": pricing_source,
+        "pricing_note": pricing_note,
         "cpo_rate": cpo_rate,
         "cpo_rate_range": cpo_range,
     }
@@ -511,10 +714,12 @@ def build_operator_medians(locations: list, tariff_map: dict) -> tuple[dict, dic
         operator = operator_key((loc.get("operator") or {}).get("name", ""))
         if not operator:
             continue
+        country_code = str(loc.get("country_code") or "")
+        party_id = str(loc.get("party_id") or "")
         for evse in loc.get("evses", []):
             for conn in evse.get("connectors", []):
                 for tariff_id in conn.get("tariff_ids") or []:
-                    rate = get_cpo_rate(tariff_id, tariff_map)
+                    rate = get_cpo_rate(tariff_id, tariff_map, country_code, party_id)
                     if rate is not None:
                         operator_rates.setdefault(operator, []).append(rate)
                         break
@@ -526,8 +731,45 @@ def build_operator_medians(locations: list, tariff_map: dict) -> tuple[dict, dic
     return medians, operator_rates
 
 
+def totalenergies_diagnostics(locations: list, tariff_map: dict, boundary: Optional[list]) -> dict:
+    """Measure where TotalEnergies tariff resolution fails inside Huizen."""
+    stats = {
+        "locations": 0,
+        "connectors": 0,
+        "with_tariff_ids": 0,
+        "resolved_energy_tariff": 0,
+    }
+    for loc in locations:
+        operator = (loc.get("operator") or {}).get("name", "")
+        if not totalenergies_mrae_fallback(operator, 0):
+            continue
+        coords = loc.get("coordinates", {})
+        try:
+            lat = float(coords.get("latitude", 0))
+            lng = float(coords.get("longitude", 0))
+        except (TypeError, ValueError):
+            continue
+        if not (LAT_MIN <= lat <= LAT_MAX and LNG_MIN <= lng <= LNG_MAX):
+            continue
+        if boundary and not point_in_boundary(lng, lat, boundary):
+            continue
+
+        stats["locations"] += 1
+        country_code = str(loc.get("country_code") or "")
+        party_id = str(loc.get("party_id") or "")
+        for evse in loc.get("evses", []):
+            for conn in evse.get("connectors", []):
+                stats["connectors"] += 1
+                tariff_ids = conn.get("tariff_ids") or []
+                if tariff_ids:
+                    stats["with_tariff_ids"] += 1
+                if any(get_cpo_rate(tid, tariff_map, country_code, party_id) is not None for tid in tariff_ids):
+                    stats["resolved_energy_tariff"] += 1
+    return stats
+
+
 def main() -> None:
-    print("=== NDW Huizen preprocessor v2 ===")
+    print("=== NDW Huizen preprocessor ===")
 
     print("\n[1/4] Downloading NDW data files...")
     try:
@@ -546,8 +788,10 @@ def main() -> None:
     print(f"  Total NL locations: {len(locations):,}")
     print(f"  Total NL tariffs:   {len(tariffs):,}")
 
-    tariff_map = {t["id"]: t for t in tariffs if isinstance(t, dict) and "id" in t}
-    print(f"  Tariff IDs indexed: {len(tariff_map):,}")
+    tariff_map = build_tariff_index(tariffs)
+    print(f"  Scoped tariffs indexed: {len(tariff_map['scoped']):,}")
+    print(f"  Globally unique IDs:    {len(tariff_map['unique']):,}")
+    print(f"  Reused tariff IDs:      {tariff_map['id_collisions']:,}")
 
     print("\n[3/4] Building operator medians...")
     operator_median, operator_rates = build_operator_medians(locations, tariff_map)
@@ -561,6 +805,13 @@ def main() -> None:
     except FileNotFoundError:
         print("  WARNING: huizen-boundary.geojson not found, using bbox only")
 
+    te_diag = totalenergies_diagnostics(locations, tariff_map, boundary)
+    print("  TotalEnergies Huizen diagnostics:")
+    print(f"    locations:              {te_diag['locations']}")
+    print(f"    connectors:             {te_diag['connectors']}")
+    print(f"    connectors tariff_ids:  {te_diag['with_tariff_ids']}")
+    print(f"    resolved ENERGY tariff: {te_diag['resolved_energy_tariff']}")
+
     print("\n[4/4] Filtering to gemeente Huizen...")
     results = []
     for loc in locations:
@@ -570,12 +821,14 @@ def main() -> None:
 
     direct = sum(1 for r in results if r["pricing_source"] == "ndw")
     median = sum(1 for r in results if r["pricing_source"] == "operator_median")
+    regional = sum(1 for r in results if r["pricing_source"] in {"totalenergies_mrae", "totalenergies_mrae_dc"})
     unknown = sum(1 for r in results if r["pricing_source"] == "unknown")
     comparison_ready = sum(1 for r in results if len(r["pricing"]) >= 2)
 
     print(f"  Locations in area:       {len(results)}")
     print(f"  Direct NDW CPO tariff:   {direct}")
     print(f"  Operator-median tariff:  {median}")
+    print(f"  Official MRA-E fallback: {regional}")
     print(f"  Unknown CPO base tariff: {unknown}")
     print(f"  2+ pass estimates:       {comparison_ready}")
 
@@ -587,9 +840,19 @@ def main() -> None:
         print(f"    {operator}: {count}")
 
     output = {
-        "schema_version": 2,
+        "schema_version": 3,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source": "NDW open data (opendata.ndw.nu)",
+        "regional_pricing": {
+            "totalenergies_mrae": {
+                "ac_range": list(TOTALENERGIES_MRAE_AC_RANGE),
+                "dc_rate": TOTALENERGIES_MRAE_DC_RATE,
+                "verified_at": TOTALENERGIES_MRAE_VERIFIED_AT,
+                "source_url": TOTALENERGIES_MRAE_SOURCE_URL,
+                "municipality_source_url": HUIZEN_CHARGING_SOURCE_URL,
+                "laadwerk_source_url": LAADWERK_SOURCE_URL,
+            }
+        },
         "bbox": {
             "lat_min": LAT_MIN,
             "lat_max": LAT_MAX,
@@ -602,6 +865,7 @@ def main() -> None:
             "available_snapshot": sum(1 for r in results if r["available"]),
             "ndw_priced": direct,
             "median_priced": median,
+            "regional_priced": regional,
             "unknown_base_rate": unknown,
             "comparison_ready": comparison_ready,
         },

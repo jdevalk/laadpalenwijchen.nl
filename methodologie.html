@@ -24,7 +24,7 @@
 <body>
 <header><div class="bar"><a class="brand" href="index.html">Laadpalen Huizen</a><a class="back" href="index.html">Terug naar de kaart</a></div></header>
 <main>
-  <p class="tag">Methodologie v2</p>
+  <p class="tag">Methodologie</p>
   <h1>Wat vergelijkt deze kaart precies?</h1>
   <p class="lead">Laadpalen Huizen combineert openbare NDW-data met openbare tariefvoorwaarden van laadpasaanbieders. De kaart probeert niet één universele prijs per laadpunt te verzinnen, maar berekent waar mogelijk de geschatte kosten van een laadsessie met de passen die jij selecteert.</p>
 
@@ -51,22 +51,30 @@
         <tr><td>Laadkompas</td><td>Zonder abonnement</td><td>CPO-basistarief + €0,47 per sessie.</td><td><a href="https://laadkompas.nl/laadpas/" rel="noopener">Laadkompas</a></td></tr>
       </tbody>
     </table>
-    <p class="muted">De voorwaarden hierboven zijn in deze versie gecontroleerd op 12 augustus 2026. De datum staat ook per laadpas in <code>huizen-data.json</code>, zodat verouderde regels later gericht kunnen worden bijgewerkt.</p>
+    <p class="muted">De voorwaarden hierboven zijn gecontroleerd op 12 augustus 2026. De datum staat ook per laadpas in <code>huizen-data.json</code>, zodat verouderde regels later gericht kunnen worden bijgewerkt.</p>
   </div>
 
   <h2>4. Waar komt het onderliggende CPO-tarief vandaan?</h2>
-  <p>Voor een betrouwbare vergelijking moet eerst duidelijk zijn welk energietarief bij de laadlocatie hoort. De preprocessor gebruikt drie niveaus:</p>
+  <p>Voor een betrouwbare vergelijking moet eerst duidelijk zijn welk energietarief bij de laadlocatie hoort. De preprocessor gebruikt vier niveaus:</p>
   <ul>
-    <li><strong>NDW-tarief</strong>, een tarief dat rechtstreeks via het OCPI-tarief-ID van een connector is gevonden. Dit krijgt de hoogste betrouwbaarheid.</li>
-    <li><strong>Operator-mediaan</strong>, alleen wanneer een locatie geen direct tarief heeft en er minimaal vijf bruikbare landelijke tariefwaarnemingen van dezelfde operator beschikbaar zijn. Regionaal sterk variërende Vattenfall/Nuon-tarieven worden hiervan uitgesloten.</li>
-    <li><strong>Onbekend</strong>, wanneer er geen verantwoord basistarief kan worden afgeleid. Er wordt dan geen generieke fallbackprijs meer verzonnen.</li>
+    <li><strong>NDW-tarief</strong>, een tarief dat rechtstreeks via het OCPI-tarief-ID van een connector is gevonden. Tarief-ID's worden gekoppeld binnen de OCPI-combinatie van land, partij en tarief-ID. Dit krijgt de hoogste betrouwbaarheid.</li>
+    <li><strong>Officiële regionale indicatie</strong>, wanneer een exploitant zelf een actuele concessieprijs of prijsband publiceert en de locatie aantoonbaar binnen dat concessiegebied ligt. Dit wordt onder andere gebruikt voor TotalEnergies in Huizen.</li>
+    <li><strong>Operator-mediaan</strong>, alleen wanneer een locatie geen direct tarief heeft en er minimaal vijf bruikbare landelijke tariefwaarnemingen van dezelfde operator beschikbaar zijn. Operators met sterk regionaal of concessiegebonden tarieven, waaronder Vattenfall/Nuon en TotalEnergies, worden hiervan uitgesloten.</li>
+    <li><strong>Onbekend</strong>, wanneer er geen verantwoord basistarief kan worden afgeleid. Er wordt dan geen generieke fallbackprijs verzonnen.</li>
   </ul>
-  <p>Dit laatste is een bewuste wijziging ten opzichte van versie 1. Een hardcoded fallback kon een laadpas automatisch als “goedkoopste” laten winnen, terwijl er voor die specifieke locatie helemaal geen actuele prijs bekend was.</p>
 
-  <h2>5. Betrouwbaarheid in de kaart</h2>
   <div class="card">
-    <p><strong>Hoog</strong> betekent dat de berekening grotendeels op een direct NDW-tarief en een eenvoudig openbaar pasmodel steunt. <strong>Middel</strong> duidt bijvoorbeeld op een operator-mediaan of een aangekondigde netwerkkorting zonder connector-specifieke prijs. <strong>Laag</strong> wordt gebruikt bij prijsbanden of roamingconstructies waarbij de app van de laadpasaanbieder de preciezere eindprijs kan tonen.</p>
-    <p>Een laadpunt krijgt alleen de aanduiding “Voordeligst met jouw passen” wanneer voor minimaal twee van jouw geselecteerde passen een berekening beschikbaar is. Eén los bekend tarief wordt niet als winnaar gepresenteerd.</p>
+    <h3>TotalEnergies en MRA-E in Huizen</h3>
+    <p>De <a href="https://www.huizen.nl/elektrisch-laden" rel="noopener">gemeente Huizen</a> werkt voor openbare laadpalen samen met Laadwerk. Laadwerk realiseert publieke laadvoorzieningen via gezamenlijke aanbestedingen voor gemeenten in Noord-Holland, Flevoland en Utrecht. In deze samenwerking plaatsen en exploiteren onder andere TotalEnergies, Vattenfall InCharge en Shell ubitricity laadpunten.</p>
+    <p>TotalEnergies publiceert voor het MRA-E-gebied verschillende actuele concessietarieven. Voor reguliere AC-laders geldt op 12 augustus 2026 <strong>€0,48/kWh voor MRA-E 2 t/m 5</strong>, <strong>€0,36/kWh voor MRA-E 6</strong> en <strong>€0,34 tot €0,36/kWh voor dynamisch MRA-E 6</strong>. Voor MRA-E DC-laders publiceert TotalEnergies <strong>€0,54/kWh</strong>. Zie de <a href="https://totalenergies.nl/elektrisch-rijden/vind-laadpunt" rel="noopener">actuele tariefpagina van TotalEnergies</a> en de <a href="https://www.laadwerk.nl/diensten/laadinfra" rel="noopener">uitleg van Laadwerk</a>.</p>
+    <p>NDW maakt bij de TotalEnergies-locaties in Huizen niet altijd een bruikbaar connector-specifiek tarief beschikbaar. Als een direct NDW-tarief ontbreekt, gebruikt de kaart daarom voor een reguliere TotalEnergies-lader een officiële regionale prijsband van <strong>€0,34 tot €0,48/kWh</strong>. Er wordt bewust geen middenbedrag als exact tarief gepresenteerd, omdat uit de locatiegegevens niet betrouwbaar is af te leiden welke MRA-E-concessie of dynamische prijs op dat moment geldt.</p>
+  </div>
+
+  <h2>5. Betrouwbaarheid en prijsbanden</h2>
+  <div class="card">
+    <p><strong>Hoog</strong> betekent dat de berekening grotendeels op een direct NDW-tarief en een eenvoudig openbaar pasmodel steunt. <strong>Middel</strong> duidt bijvoorbeeld op een officiële regionale concessieprijs of een operator-mediaan. <strong>Laag</strong> wordt gebruikt bij brede prijsbanden, roamingconstructies of aangekondigde kortingen waarbij de app van de laadpasaanbieder de preciezere eindprijs kan tonen.</p>
+    <p>Wanneer de basisprijs een bandbreedte is, rekent de kaart die bandbreedte door naar de totale sessiekosten van iedere laadpas. Een pas krijgt alleen de aanduiding “Voordeligst met jouw passen” wanneer zijn hoogste mogelijke berekende sessiekosten nog lager zijn dan de laagste mogelijke kosten van alle andere berekenbare geselecteerde passen.</p>
+    <p>Als prijsbanden overlappen, toont de kaart <strong>geen eenduidige goedkoopste pas</strong>. Op de kaart krijgt zo'n locatie een neutrale indicatiekleur in plaats van de kleur van een laadpas. Daarmee blijft zichtbaar dat er wel prijsinformatie beschikbaar is, zonder een harde winnaar te suggereren.</p>
   </div>
 
   <h2>6. Automatische update en hosting</h2>
@@ -75,13 +83,14 @@
   <h2>7. Bekende beperkingen</h2>
   <ul>
     <li>De prijs die je werkelijk betaalt, wordt uiteindelijk bepaald door de laadpasaanbieder en kan per connector, roamingroute, tijdstip of aanvullende fee afwijken.</li>
-    <li>ANWB noemt speciale tarieven op onder andere TotalEnergies en Ubitricity, maar zonder één openbaar universeel connectorbedrag rekent de kaart die korting niet automatisch in.</li>
+    <li>ANWB noemt speciale tarieven op onder andere TotalEnergies en Ubitricity. Zonder een openbaar connector-specifiek kortingsbedrag wordt deze korting niet automatisch van de MRA-E prijsband afgetrokken.</li>
+    <li>Bij TotalEnergies AC in Huizen is de MRA-E-prijsband een regionale indicatie. De exacte concessie en eventuele dynamische prijs per connector zijn niet betrouwbaar uit NDW af te leiden.</li>
     <li>Parkeer-, tijd-, idle- en blokkeerkosten zijn nog niet volledig gemodelleerd.</li>
     <li>Beschikbaarheid is de dagelijkse NDW-snapshot, niet realtime.</li>
     <li>De kaart is gericht op Huizen en is geen vervanging voor de app of factuur van de laadpasaanbieder.</li>
   </ul>
 
-  <p class="footer-note">Zie je een tarief dat niet meer klopt? De bron-URL en verificatiedatum staan in de dataset en in <code>process.py</code>. Daardoor is de regel traceerbaar en eenvoudig bij te werken zonder een verborgen fallbacktabel te onderhouden.</p>
+  <p class="footer-note">Zie je een tarief dat niet meer klopt? De bron-URL en verificatiedatum staan in de dataset en in <code>process.py</code>. Daardoor is iedere prijsregel traceerbaar en kan een regionale fallback gericht worden bijgewerkt wanneer een officiële bron verandert.</p>
 </main>
 </body>
 </html>
