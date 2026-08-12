@@ -20,10 +20,10 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.x"
 
@@ -44,44 +44,27 @@ jobs:
             echo "Tariefmonitor kon geen rapport genereren." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Open or update pricing review issue
-        if: steps.monitor.outcome == 'failure'
-        uses: actions/github-script@v7
+      - name: Sync pricing review issue
+        if: always()
+        uses: actions/github-script@v9
+        env:
+          MONITOR_OUTCOME: ${{ steps.monitor.outcome }}
         with:
           script: |
             const fs = require('fs');
+            const outcome = process.env.MONITOR_OUTCOME;
             const title = 'Tariefmonitor: controle van prijsbronnen vereist';
-            const report = fs.readFileSync('pricing-monitor-report.md', 'utf8');
-            const { data: issues } = await github.rest.issues.listForRepo({
+
+            const { data: repo } = await github.rest.repos.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              state: 'open',
-              per_page: 100,
             });
-            const existing = issues.find(issue => !issue.pull_request && issue.title === title);
-            const body = `${report}\n\nAutomatisch gecontroleerd door workflow \`${context.workflow}\` in run ${context.runId}.`;
-            if (existing) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existing.number,
-                body,
-              });
-            } else {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                body,
-              });
+
+            if (!repo.has_issues) {
+              core.notice('GitHub Issues is uitgeschakeld voor deze repository. De tariefcontrole blijft beschikbaar in de Job Summary.');
+              return;
             }
 
-      - name: Close resolved pricing review issue
-        if: steps.monitor.outcome == 'success'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const title = 'Tariefmonitor: controle van prijsbronnen vereist';
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -89,7 +72,28 @@ jobs:
               per_page: 100,
             });
             const existing = issues.find(issue => !issue.pull_request && issue.title === title);
-            if (existing) {
+
+            if (outcome === 'failure') {
+              const report = fs.existsSync('pricing-monitor-report.md')
+                ? fs.readFileSync('pricing-monitor-report.md', 'utf8')
+                : 'De tariefmonitor is mislukt zonder rapportbestand.';
+              const body = `${report}\n\nAutomatisch gecontroleerd door workflow \`${context.workflow}\` in run ${context.runId}.`;
+              if (existing) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body,
+                });
+              } else {
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title,
+                  body,
+                });
+              }
+            } else if (outcome === 'success' && existing) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -106,4 +110,6 @@ jobs:
 
       - name: Fail when a pricing source needs review
         if: steps.monitor.outcome == 'failure'
-        run: exit 1
+        run: |
+          echo "Een of meer officiële tariefbronnen moeten handmatig worden gecontroleerd. Zie de Job Summary."
+          exit 1
