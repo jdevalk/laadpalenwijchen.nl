@@ -35,8 +35,8 @@
   </div>
 
   <h2>2. Waarom sessiekosten in plaats van alleen €/kWh?</h2>
-  <p>Een laadpas kan naast het energietarief ook een bedrag per sessie of een opslag per kWh rekenen. Alleen het laagste getal in €/kWh vergelijken kan daardoor een verkeerde winnaar opleveren.</p>
-  <p class="formula">Geschatte sessiekosten = gekozen kWh × prijs via laadpas + sessiekosten</p>
+  <p>Een laadpas kan naast het energietarief ook een bedrag per sessie, een procentuele transactievergoeding of een opslag per kWh rekenen. Alleen het laagste getal in €/kWh vergelijken kan daardoor een verkeerde winnaar opleveren.</p>
+  <p class="formula">Geschatte sessiekosten = energiekosten via laadpas + procentuele transactiekosten + vaste sessiekosten</p>
   <p>De kaart laat standaard 20 kWh zien. Je kunt 5, 10, 20 of 30 kWh kiezen. Passen met een maandabonnement zijn bewust niet in de hoofdvergelijking opgenomen, omdat de kosten per sessie pas eerlijk kunnen worden toegerekend als ook bekend is hoeveel keer iemand per maand publiek laadt.</p>
 
   <h2>3. Laadpassen in de kernvergelijking</h2>
@@ -45,13 +45,15 @@
       <thead><tr><th>Laadpas</th><th>Plan</th><th>Model in de kaart</th><th>Bron</th></tr></thead>
       <tbody>
         <tr><td>ANWB</td><td>Zonder abonnement</td><td>CPO-basistarief + €0,89 per sessie. Netwerkkortingen worden alleen als melding getoond wanneer geen betrouwbare connectorprijs beschikbaar is.</td><td><a href="https://www.anwb.nl/auto/elektrisch-rijden/laadpas-abonnement" rel="noopener">ANWB</a></td></tr>
+        <tr><td>Tap Electric</td><td>Light</td><td>Geen maandbedrag. Het laadpunttarief wordt gebruikt als basis en Tap rekent daar 5% transactiekosten per sessie bovenop.</td><td><a href="https://tapelectric.app/nl/laadpas/" rel="noopener">Tap Electric</a></td></tr>
         <tr><td>Vattenfall InCharge</td><td>Gratis laadpas</td><td>Eigen InCharge-netwerk zonder sessietoeslag. Buiten het eigen netwerk wordt €0,35 per sessie toegevoegd. Het roaming-kWh-tarief kan in de InCharge-app afwijken, daarom krijgt die schatting lagere betrouwbaarheid.</td><td><a href="https://incharge.vattenfall.nl/onze-tarieven" rel="noopener">Vattenfall</a></td></tr>
         <tr><td>E-Flux by Road</td><td>Flex</td><td>€0,31 per sessie en buiten E-Flux €0,024/kWh opslag. Mogelijke extra clearingkosten kunnen niet uit de NDW-locatie worden afgeleid en worden daarom als waarschuwing genoemd.</td><td><a href="https://www.e-flux.io/nl/tarieven-laadpassen" rel="noopener">E-Flux</a></td></tr>
         <tr><td>Shell Recharge</td><td>Basic</td><td>Shell publiceert prijsbanden. De kaart gebruikt het midden van de betreffende AC- of DC-band als expliciete schatting, plus €0,35 per sessie. De exacte paalprijs hoort daarom altijd in de Shell-app gecontroleerd te worden.</td><td><a href="https://www.shell.nl/elektrisch-opladen/Tarieven.html" rel="noopener">Shell</a></td></tr>
-        <tr><td>Laadkompas</td><td>Zonder abonnement</td><td>CPO-basistarief + €0,47 per sessie.</td><td><a href="https://laadkompas.nl/laadpas/" rel="noopener">Laadkompas</a></td></tr>
+        <tr><td>Laadkompas</td><td>Zonder abonnement</td><td>CPO-basistarief + €0,47 per sessie.</td><td><a href="https://laadkompas.nl/laadpas/zonder-abonnement/" rel="noopener">Laadkompas</a></td></tr>
       </tbody>
     </table>
     <p class="muted">De voorwaarden hierboven zijn gecontroleerd op 12 augustus 2026. De datum staat ook per laadpas in <code>huizen-data.json</code>, zodat verouderde regels later gericht kunnen worden bijgewerkt.</p>
+    <p class="muted">De kernselectie is bewust beperkt. Een pas wordt alleen toegevoegd wanneer het plan zonder maandabonnement eerlijk per sessie te vergelijken is, de tariefregels publiek en reproduceerbaar genoeg zijn, de pas brede Nederlandse of lokale relevantie heeft en hij voldoende extra waarde biedt naast de al opgenomen passen. De kaart is dus geen volledige catalogus van alle Nederlandse laadpassen.</p>
   </div>
 
   <h2>4. Waar komt het onderliggende CPO-tarief vandaan?</h2>
@@ -77,8 +79,10 @@
     <p>Als prijsbanden overlappen, toont de kaart <strong>geen eenduidige goedkoopste pas</strong>. Op de kaart krijgt zo'n locatie een neutrale indicatiekleur in plaats van de kleur van een laadpas. Daarmee blijft zichtbaar dat er wel prijsinformatie beschikbaar is, zonder een harde winnaar te suggereren.</p>
   </div>
 
-  <h2>6. Automatische update en hosting</h2>
-  <p>De GitHub Action in <code>.github/workflows/update.yml</code> draait dagelijks om <strong>06:37 UTC</strong>, voert eerst de lokale tests uit, bouwt daarna <code>huizen-data.json</code> opnieuw uit NDW-data en commit alleen wanneer de dataset is gewijzigd. De site zelf wordt gepubliceerd via <strong>GitHub Pages</strong> op <a href="https://rubenwoudsma.github.io/laadpalenhuizen/" rel="noopener">rubenwoudsma.github.io/laadpalenhuizen/</a>.</p>
+  <h2>6. Automatische update en tariefbewaking</h2>
+  <p>De GitHub Action in <code>.github/workflows/update.yml</code> draait dagelijks om <strong>06:37 UTC</strong>, voert eerst de lokale tests uit, bouwt daarna <code>huizen-data.json</code> opnieuw uit NDW-data en commit alleen wanneer de dataset is gewijzigd.</p>
+  <p>Los daarvan draait <code>.github/workflows/pricing-monitor.yml</code> maandelijks. Deze workflow controleert de officiële tariefpagina's tegen de voorwaarden in <code>pricing-sources.json</code>. Als een bron niet meer bereikbaar is of een verwachte tariefvoorwaarde ontbreekt, opent of actualiseert GitHub automatisch een Issue voor handmatige beoordeling. De monitor wijzigt nooit zelfstandig een tarief in <code>process.py</code>; een inhoudelijke prijswijziging blijft altijd een bewuste codewijziging.</p>
+  <p>De site zelf wordt gepubliceerd via <strong>GitHub Pages</strong> op <a href="https://rubenwoudsma.github.io/laadpalenhuizen/" rel="noopener">rubenwoudsma.github.io/laadpalenhuizen/</a>.</p>
 
   <h2>7. Bekende beperkingen</h2>
   <ul>
@@ -90,7 +94,7 @@
     <li>De kaart is gericht op Huizen en is geen vervanging voor de app of factuur van de laadpasaanbieder.</li>
   </ul>
 
-  <p class="footer-note">Zie je een tarief dat niet meer klopt? De bron-URL en verificatiedatum staan in de dataset en in <code>process.py</code>. Daardoor is iedere prijsregel traceerbaar en kan een regionale fallback gericht worden bijgewerkt wanneer een officiële bron verandert.</p>
+  <p class="footer-note">Zie je een tarief dat niet meer klopt? De bron-URL en verificatiedatum staan in de dataset, <code>process.py</code> en <code>pricing-sources.json</code>. De maandelijkse bronmonitor helpt wijzigingen signaleren, maar een tarief wordt pas aangepast nadat de officiële bron handmatig is beoordeeld.</p>
 </main>
 </body>
 </html>

@@ -21,6 +21,25 @@ class PricingRulesTest(unittest.TestCase):
         self.assertEqual(quote["confidence"], "medium")
         self.assertIn("korting", quote["note"].lower())
 
+    def test_tap_light_uses_cpo_plus_five_percent_transaction_fee(self):
+        quote = process.build_pricing(0.40, "ndw", "TotalEnergies", 22)["tap_light"]
+        self.assertEqual(quote["kwh"], 0.40)
+        self.assertEqual(quote["session"], 0.0)
+        self.assertEqual(quote["percentage"], 0.05)
+        self.assertEqual(quote["confidence"], "high")
+
+    def test_tap_light_preserves_cpo_range_for_frontend_percentage_calculation(self):
+        quote = process.build_pricing(
+            0.41,
+            "totalenergies_mrae",
+            "TotalEnergies",
+            22,
+            cpo_rate_range=[0.34, 0.48],
+        )["tap_light"]
+        self.assertEqual(quote["range"], [0.34, 0.48])
+        self.assertEqual(quote["percentage"], 0.05)
+        self.assertEqual(quote["confidence"], "low")
+
     def test_vattenfall_own_network_has_no_session_fee(self):
         quote = process.build_pricing(0.42, "ndw", "Vattenfall InCharge", 22)["vattenfall"]
         self.assertEqual(quote["session"], 0.0)

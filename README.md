@@ -23,12 +23,15 @@ Je geselecteerde laadpassen worden alleen lokaal in je browser opgeslagen. Er is
 De vergelijking ondersteunt momenteel de volgende laadpassen en plannen zonder maandabonnement:
 
 - ANWB, Zonder abonnement
+- Tap Electric, Light
 - Vattenfall InCharge
 - E-Flux by Road, Flex
 - Shell Recharge Basic
 - Laadkompas, Zonder abonnement
 
-De kaart vergelijkt niet alleen een prijs per kWh. Waar relevant worden ook sessiekosten, kWh-opslagen en verschillen tussen het eigen netwerk en roaming meegenomen.
+De kaart vergelijkt niet alleen een prijs per kWh. Waar relevant worden ook vaste sessiekosten, procentuele transactiekosten, kWh-opslagen en verschillen tussen het eigen netwerk en roaming meegenomen.
+
+De kernselectie is bewust niet uitputtend. Een laadpas wordt alleen opgenomen wanneer het plan zonder maandabonnement te vergelijken is, de aanbieder een reproduceerbaar publiek tariefmodel heeft, de pas voldoende Nederlandse of lokale relevantie heeft en hij daadwerkelijk iets toevoegt aan de bestaande vergelijking.
 
 De uiteindelijke kosten bij een laadpaal kunnen afwijken. Controleer bij twijfel altijd het actuele tarief in de app of omgeving van je laadpasaanbieder.
 
@@ -123,22 +126,27 @@ De prijsregels kunnen worden getest met:
 python3 -m unittest discover -s tests
 ```
 
-## Automatische updates
+## Automatische updates en tariefcontrole
 
 De workflow in `.github/workflows/update.yml` haalt dagelijks de NDW-data op, voert de tests uit en genereert een nieuwe `huizen-data.json`. Als de dataset is gewijzigd, wordt deze automatisch teruggeschreven naar de repository.
 
-Voor GitHub Actions zijn geen API-secrets nodig. De workflow heeft wel schrijfrechten op de repository nodig.
+Daarnaast controleert `.github/workflows/pricing-monitor.yml` maandelijks de officiële tariefpagina's die in `pricing-sources.json` zijn vastgelegd. Als een verwachte prijsvoorwaarde niet meer op de bronpagina terug te vinden is, opent of actualiseert de workflow een GitHub Issue voor handmatige controle. De monitor past tarieven nooit automatisch in de code aan.
+
+De tariefcontrole kan ook handmatig worden gestart via `workflow_dispatch`. Voor GitHub Actions zijn geen API-secrets nodig. De dagelijkse dataworkflow heeft schrijfrechten op de repository nodig, de tariefmonitor alleen leesrechten op de code en schrijfrechten voor Issues.
 
 ## Projectstructuur
 
 ```text
-.github/workflows/update.yml  Automatische NDW-update
-index.html                    Kaart, filters en prijsvergelijking
-methodologie.html             Uitleg over data en tariefberekening
-process.py                    NDW-preprocessor en prijsregels
-huizen-data.json              Gegenereerde laadpuntdata
-huizen-boundary.geojson       Gemeentegrens Huizen
-tests/test_pricing.py         Tests voor de prijsregels
+.github/workflows/update.yml           Dagelijkse NDW-update
+.github/workflows/pricing-monitor.yml  Maandelijkse controle van tariefbronnen
+index.html                             Kaart, filters en prijsvergelijking
+methodologie.html                      Uitleg over data en tariefberekening
+process.py                             NDW-preprocessor en prijsregels
+pricing-sources.json                   Bronvoorwaarden en selectiebeleid
+scripts/check_pricing_sources.py       Automatische controle van officiële bronnen
+huizen-data.json                       Gegenereerde laadpuntdata
+huizen-boundary.geojson                Gemeentegrens Huizen
+tests/                                 Regressietests voor prijsmodel en bronmonitor
 ```
 
 ## Herkomst
